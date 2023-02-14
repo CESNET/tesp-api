@@ -52,7 +52,7 @@ async def handle_initializing_task(event: Event) -> None:
         for i in range(0, len(inputs)):
             content = inputs[i].content
             if content is None and inputs[i].url is not None:
-                content = await file_transfer_service.ftp_download_file(inputs[i].url)
+                content = await file_transfer_service.download_file(inputs[i].url)
             pulsar_path = await pulsar_operations.upload(
                 job_id, DataType.INPUT, file_content=Just(content),
                 file_path=maybe_of(inputs[i].url).maybe(f'input_file_{i}', lambda x: x.path))
@@ -127,7 +127,7 @@ async def handle_finalize_task(event: Event) -> None:
     async def transfer_files(files_to_transfer):
         for file_to_transfer in files_to_transfer:
             file_content: bytes = await pulsar_operations.download_output(task_id, file_to_transfer['file'])
-            await file_transfer_service.ftp_upload_file(file_to_transfer['url'], file_content)
+            await file_transfer_service.upload_file(file_to_transfer['url'], file_content)
 
     await Promise(lambda resolve, reject: resolve(None))\
         .map(lambda nothing: [

@@ -1,12 +1,12 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Union
 from pathlib import Path
 from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 from pydantic.class_validators import root_validator
 
-from tesp_api.utils.types import FtpUrl
+from tesp_api.utils.types import AnyUrl, FtpUrl, S3Url
 from tesp_api.repository.model.py_object_id import PyObjectId
 
 
@@ -37,7 +37,7 @@ class TesTaskInput(BaseModel):
     name: str = None
     description: str = None
 
-    url: FtpUrl = Field(
+    url: Union[S3Url, FtpUrl] = Field(
         None, description='REQUIRED, unless "content" is set. URL in long term storage, for example: '
                           ' - s3://my-object-store/file1'
                           ' - gs://my-bucket/file2'
@@ -67,7 +67,7 @@ class TesTaskOutput(BaseModel):
     description: str = Field(
         None, description="Optional users provided description field, can be used for documentation.")
 
-    url: FtpUrl = Field(..., description='URL for the file to be copied by the TES server '
+    url: Union[S3Url, FtpUrl] = Field(..., description='URL for the file to be copied by the TES server '
                                          'after the task is complete. For Example: '
                                          ' - s3://my-object-store/file1'
                                          ' - gs://my-bucket/file2'
@@ -151,7 +151,7 @@ class TesTaskExecutorLog(BaseModel):
 
 
 class TesTaskOutputFileLog(BaseModel):
-    url: FtpUrl = Field(..., example='s3://bucket/file.txt',
+    url: Union[S3Url, FtpUrl] = Field(..., example='s3://bucket/file.txt',
                         description='URL of the file in storage, e.g. s3://bucket/file.txt')
     path: Path = Field(..., description='Path of the file inside the container. Must be an absolute path.')
     size_bytes: str = Field(..., example='1024',
