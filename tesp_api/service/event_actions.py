@@ -14,7 +14,7 @@ from tesp_api.repository.task_repository import task_repository
 from tesp_api.service.file_transfer_service import file_transfer_service
 from tesp_api.service.error import pulsar_event_handle_error, TaskNotFoundError, TaskExecutorError
 from tesp_api.service.pulsar_operations import PulsarRestOperations, PulsarAmpqOperations, DataType
-from tesp_api.repository.model.task import TesTaskState, TesTaskExecutor, TesTaskInput, TesTaskOutput
+from tesp_api.repository.model.task import TesTaskState, TesTaskExecutor, TesTaskResources, TesTaskInput, TesTaskOutput
 from tesp_api.repository.task_repository_utils import append_task_executor_logs, update_last_task_log_time
 
 
@@ -46,23 +46,33 @@ async def handle_initializing_task(event: Event) -> None:
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    async def setup_data(job_id: ObjectId, inputs: List[TesTaskInput], outputs: List[TesTaskOutput]):
+    async def setup_data(job_id: ObjectId, resources: TesTaskResources, inputs: List[TesTaskInput], outputs: List[TesTaskOutput]):
+        resource_conf: dict
         input_confs: List[dict] = []
         output_confs: List[dict] = []
+
+        resource_conf = ({
+            'cpu_cores': resources.cpu_cores,
+            'ram_gb': resources.ram_gb
+        })
+
         for i in range(0, len(inputs)):
             content = inputs[i].content
             if content is None and inputs[i].url is not None:
                 content = await file_transfer_service.download_file(inputs[i].url)
             pulsar_path = await pulsar_operations.upload(
-                job_id, DataType.INPUT, file_content=Just(content),
+                job_id, DataType.INPUT,
+                file_content=Just(content),
                 file_path=maybe_of(inputs[i].url).maybe(f'input_file_{i}', lambda x: x.path))
             input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path})
+
         for i in range(0, len(outputs)):
             pulsar_path = await pulsar_operations.upload(
-                job_id, DataType.OUTPUT, file_path=maybe_of(outputs[i].url.path).maybe("", lambda x: x))
-            output_confs.append({
-                'container_path': outputs[i].path, 'pulsar_path': pulsar_path, 'url': outputs[i].url})
-        return input_confs, output_confs
+                job_id, DataType.OUTPUT,
+                file_path=maybe_of(outputs[i].url.path).maybe("", lambda x: x))
+            output_confs.append({'container_path': outputs[i].path, 'pulsar_path': pulsar_path, 'url': outputs[i].url})
+
+        return resource_conf, input_confs, output_confs
 
     await Promise(lambda resolve, reject: resolve(None))\
         .then(lambda nothing: task_repository.update_task(
@@ -71,12 +81,15 @@ async def handle_initializing_task(event: Event) -> None:
         )).map(lambda updated_task: get_else_throw(
             updated_task, TaskNotFoundError(task_id, Just(TesTaskState.QUEUED))
         )).then(lambda updated_task: setup_data(
-            task_id, maybe_of(updated_task.inputs).maybe([], lambda x: x),
+            task_id,
+            maybe_of(updated_task.resources).maybe([], lambda x: x),
+            maybe_of(updated_task.inputs).maybe([], lambda x: x),
             maybe_of(updated_task.outputs).maybe([], lambda x: x)
-        )).map(lambda input_output_confs: dispatch_event('run_task', {
+        )).map(lambda res_input_output_confs: dispatch_event('run_task', {
             **payload,
-            'input_confs': input_output_confs[0],
-            'output_confs': input_output_confs[1]
+            'resource_conf': res_input_output_confs[0],
+            'input_confs': res_input_output_confs[1],
+            'output_confs': res_input_output_confs[2]
         })).catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations))\
         .then(lambda x: x)  # invokes promise returned by error handler, otherwise acts as identity function
 
@@ -85,6 +98,7 @@ async def handle_initializing_task(event: Event) -> None:
 async def handle_run_task(event: Event) -> None:
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
+    resource_conf: dict = payload['resource_conf']
     input_confs: List[dict] = payload['input_confs']
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
@@ -94,7 +108,7 @@ async def handle_run_task(event: Event) -> None:
             task_id, TesTaskState.RUNNING,
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
         for executor in executors:
-            run_command = docker_run_command(executor, input_confs, output_confs)
+            run_command = docker_run_command(executor, resource_conf, input_confs, output_confs)
             command_start_time = datetime.datetime.now(datetime.timezone.utc)
             command_status = await pulsar_operations.run_job(task_id, run_command)
             command_end_time = datetime.datetime.now(datetime.timezone.utc)
