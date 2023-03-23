@@ -1,5 +1,6 @@
 import datetime
 from typing import List
+from pathlib import Path
 
 from pymonad.maybe import Just
 from bson.objectid import ObjectId
@@ -46,8 +47,13 @@ async def handle_initializing_task(event: Event) -> None:
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    async def setup_data(job_id: ObjectId, resources: TesTaskResources, inputs: List[TesTaskInput], outputs: List[TesTaskOutput]):
+    async def setup_data(job_id: ObjectId,
+            resources: TesTaskResources,
+            volumes: List[dict],
+            inputs: List[TesTaskInput],
+            outputs: List[TesTaskOutput]):
         resource_conf: dict
+        volume_confs: List[dict] = []
         input_confs: List[dict] = []
         output_confs: List[dict] = []
 
@@ -55,6 +61,12 @@ async def handle_initializing_task(event: Event) -> None:
             'cpu_cores': resources.cpu_cores,
             'ram_gb': resources.ram_gb
         })
+
+        for v in volumes:
+            volume_confs.append({
+                'volume_name': f'vol-{str(job_id)}',
+                'container_path': v
+            })
 
         for i in range(0, len(inputs)):
             content = inputs[i].content
@@ -72,7 +84,7 @@ async def handle_initializing_task(event: Event) -> None:
                 file_path=maybe_of(outputs[i].url.path).maybe("", lambda x: x))
             output_confs.append({'container_path': outputs[i].path, 'pulsar_path': pulsar_path, 'url': outputs[i].url})
 
-        return resource_conf, input_confs, output_confs
+        return resource_conf, volume_confs, input_confs, output_confs
 
     await Promise(lambda resolve, reject: resolve(None))\
         .then(lambda nothing: task_repository.update_task(
@@ -83,13 +95,15 @@ async def handle_initializing_task(event: Event) -> None:
         )).then(lambda updated_task: setup_data(
             task_id,
             maybe_of(updated_task.resources).maybe([], lambda x: x),
+            maybe_of(updated_task.volumes).maybe([], lambda x: x),
             maybe_of(updated_task.inputs).maybe([], lambda x: x),
             maybe_of(updated_task.outputs).maybe([], lambda x: x)
         )).map(lambda res_input_output_confs: dispatch_event('run_task', {
             **payload,
             'resource_conf': res_input_output_confs[0],
-            'input_confs': res_input_output_confs[1],
-            'output_confs': res_input_output_confs[2]
+            'volume_confs': res_input_output_confs[1],
+            'input_confs': res_input_output_confs[2],
+            'output_confs': res_input_output_confs[3]
         })).catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations))\
         .then(lambda x: x)  # invokes promise returned by error handler, otherwise acts as identity function
 
@@ -99,6 +113,7 @@ async def handle_run_task(event: Event) -> None:
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
     resource_conf: dict = payload['resource_conf']
+    volume_confs: List[Path] = payload['volume_confs']
     input_confs: List[dict] = payload['input_confs']
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
@@ -108,7 +123,7 @@ async def handle_run_task(event: Event) -> None:
             task_id, TesTaskState.RUNNING,
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
         for executor in executors:
-            run_command = docker_run_command(executor, resource_conf, input_confs, output_confs)
+            run_command = docker_run_command(executor, resource_conf, volume_confs, input_confs, output_confs)
             command_start_time = datetime.datetime.now(datetime.timezone.utc)
             command_status = await pulsar_operations.run_job(task_id, run_command)
             command_end_time = datetime.datetime.now(datetime.timezone.utc)
