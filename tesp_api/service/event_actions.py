@@ -1,3 +1,4 @@
+import re
 import datetime
 from typing import List
 from pathlib import Path
@@ -63,8 +64,9 @@ async def handle_initializing_task(event: Event) -> None:
         })
 
         for v in volumes:
+            volume_path = re.sub(r"[^\w]", "", str(v))
             volume_confs.append({
-                'volume_name': f'vol-{str(job_id)}',
+                'volume_name': f'vol-{str(job_id)}-{volume_path}',
                 'container_path': v
             })
 
