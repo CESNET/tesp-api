@@ -2,7 +2,7 @@
 from tesp_api.utils.functional import maybe_of
 from tesp_api.utils.types import AnyUrl
 
-from tesp_api.service.client import Client, client_s3, client_ftp
+from tesp_api.service.client import client_s3, client_ftp
 from tesp_api.service.error import UnsupportedProtocolError
 
 
