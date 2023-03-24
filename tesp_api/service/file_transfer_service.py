@@ -2,7 +2,7 @@
 from tesp_api.utils.functional import maybe_of
 from tesp_api.utils.types import AnyUrl
 
-from tesp_api.service.client import client_s3, client_ftp
+from tesp_api.service.client import client_s3, client_ftp, client_http
 from tesp_api.service.error import UnsupportedProtocolError
 
 
@@ -14,8 +14,9 @@ class FileTransferService:
         if not url or not url.scheme:
             raise UnsupportedProtocolError()
 
-        if   url.scheme ==  "s3": return client_s3
-        elif url.scheme == "ftp": return client_ftp
+        if   url.scheme ==  "s3":  return client_s3
+        elif url.scheme == "ftp":  return client_ftp
+        elif url.scheme == "http": return client_http
         else: raise UnsupportedProtocolError()
 
     @staticmethod
