@@ -7,7 +7,7 @@ from tesp_api.utils.types import AnyUrl
 from tesp_api.service.client.client import Client
 
 
-# TODO: Error handling
+# TODO: Error handling, maybe_of
 class ClientS3(Client):
 
     @staticmethod

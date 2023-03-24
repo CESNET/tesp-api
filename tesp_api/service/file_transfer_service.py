@@ -20,7 +20,7 @@ class FileTransferService:
 
     @staticmethod
     async def download_file(url: AnyUrl):
-        await FileTransferService._choose_client(url).download_file(url)
+        return await FileTransferService._choose_client(url).download_file(url)
 
     @staticmethod
     async def upload_file(url: AnyUrl, file_content: bytes):
