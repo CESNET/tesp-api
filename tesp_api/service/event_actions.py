@@ -59,8 +59,8 @@ async def handle_initializing_task(event: Event) -> None:
         output_confs: List[dict] = []
 
         resource_conf = ({
-            'cpu_cores': resources.cpu_cores,
-            'ram_gb': resources.ram_gb
+            'cpu_cores': resources.cpu_cores if resources else None,
+            'ram_gb': resources.ram_gb if resources else None
         })
 
         for v in volumes:
