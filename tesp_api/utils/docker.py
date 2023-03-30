@@ -13,6 +13,7 @@ class DockerRunCommandBuilder:
         self._resource_cpu: Maybe[str] = Nothing
         self._resource_mem: Maybe[str] = Nothing
         self._docker_image: Maybe[str] = Nothing
+        self._workdir: Maybe[str] = Nothing
         self._volumes: Dict[str, str] = {}
         self._bind_mounts: Dict[str, str] = {}
         self._command: Maybe[str] = Nothing
@@ -35,6 +36,10 @@ class DockerRunCommandBuilder:
         self._docker_image = Just(docker_image)
         return self
 
+    def with_workdir(self, workdir: str):
+        self._workdir = maybe_of(workdir)
+        return self
+
     def with_command(self, command: List[str], stdin: Maybe[str] = Nothing,
                      stdout: Maybe[str] = Nothing, stderr: Maybe[str] = Nothing):
         command_str = " ".join(command)
@@ -50,20 +55,20 @@ class DockerRunCommandBuilder:
         self._resource_cpu = Nothing
         self._resource_mem = Nothing
         self._docker_image = Nothing
+        self._workdir = Nothing
         self._volumes = {}
         self._bind_mounts = {}
         return self
 
     def get_run_command(self) -> str:
-        resources_str = (f' '
-                         f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
-                         f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}'
-                         f' ')
+        resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
+                         f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
         bind_mounts_str = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._bind_mounts.items()))
         volumes_str     = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._volumes.items()))
         docker_image = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
+        workdir_str = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
         command_str = self._command.maybe("", lambda x: x)
-        run_command = f'docker run {resources_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
+        run_command = f'docker run {resources_str} {workdir_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
         self.reset()
         return run_command
 
@@ -76,11 +81,14 @@ def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_co
             maybe_of(executor.stdin).map(lambda x: str(x)),
             maybe_of(executor.stdout).map(lambda x: str(x)),
             maybe_of(executor.stderr).map(lambda x: str(x))) \
+        .with_workdir(executor.workdir) \
         .with_resource(resource_conf)
+
     [command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
      for volume_conf in volume_confs]
     [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
     [command_builder.with_bind_mount(output_conf['container_path'], output_conf['pulsar_path'])
      for output_conf in output_confs]
+
     return command_builder.get_run_command()
