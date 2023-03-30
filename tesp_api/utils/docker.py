@@ -23,12 +23,12 @@ class DockerRunCommandBuilder:
         self._resource_mem = maybe_of(resources["ram_gb"])
         return self
 
-    def with_bind_mount(self, host_path: str, container_path: str):
-        self._bind_mounts[host_path] = container_path
+    def with_bind_mount(self, container_path: str, host_path: str):
+        self._bind_mounts[container_path] = host_path
         return self
 
-    def with_volume(self, volume_name: str, container_path: str):
-        self._volumes[volume_name] = container_path
+    def with_volume(self, container_path: str, volume_name: str):
+        self._volumes[container_path] = volume_name
         return self
 
     def with_image(self, docker_image: str):
@@ -59,8 +59,8 @@ class DockerRunCommandBuilder:
                          f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}'
                          f' ')
-        bind_mounts_str = " ".join(map(lambda v_paths: f'-v {v_paths[0]}:{v_paths[1]}', self._bind_mounts.items()))
-        volumes_str     = " ".join(map(lambda v_paths: f'-v {v_paths[0]}:{v_paths[1]}', self._volumes.items()))
+        bind_mounts_str = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._bind_mounts.items()))
+        volumes_str     = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._volumes.items()))
         docker_image = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
         command_str = self._command.maybe("", lambda x: x)
         run_command = f'docker run {resources_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
@@ -77,10 +77,10 @@ def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_co
             maybe_of(executor.stdout).map(lambda x: str(x)),
             maybe_of(executor.stderr).map(lambda x: str(x))) \
         .with_resource(resource_conf)
-    [command_builder.with_volume(volume_conf['volume_name'], volume_conf['container_path'])
+    [command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
      for volume_conf in volume_confs]
-    [command_builder.with_bind_mount(input_conf['pulsar_path'], input_conf['container_path'])
+    [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
-    [command_builder.with_bind_mount(output_conf['pulsar_path'], output_conf['container_path'])
+    [command_builder.with_bind_mount(output_conf['container_path'], output_conf['pulsar_path'])
      for output_conf in output_confs]
     return command_builder.get_run_command()
