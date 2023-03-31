@@ -14,6 +14,7 @@ class DockerRunCommandBuilder:
         self._resource_mem: Maybe[str] = Nothing
         self._docker_image: Maybe[str] = Nothing
         self._workdir: Maybe[str] = Nothing
+        self._envs: Dict[str, str] = {}
         self._volumes: Dict[str, str] = {}
         self._bind_mounts: Dict[str, str] = {}
         self._command: Maybe[str] = Nothing
@@ -40,6 +41,10 @@ class DockerRunCommandBuilder:
         self._workdir = maybe_of(workdir)
         return self
 
+    def with_env(self, name: str, value: str):
+        self._envs[name] = value
+        return self
+
     def with_command(self, command: List[str], stdin: Maybe[str] = Nothing,
                      stdout: Maybe[str] = Nothing, stderr: Maybe[str] = Nothing):
         command_str = " ".join(command)
@@ -63,12 +68,14 @@ class DockerRunCommandBuilder:
     def get_run_command(self) -> str:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
-        bind_mounts_str = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._bind_mounts.items()))
-        volumes_str     = " ".join(map(lambda v_paths: f'-v {v_paths[1]}:{v_paths[0]}', self._volumes.items()))
-        docker_image = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
-        workdir_str = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
+        bind_mounts_str = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
+        volumes_str     = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
+        docker_image    = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
+        workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
+        env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
-        run_command = f'docker run {resources_str} {workdir_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
+
+        run_command = f'docker run {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
         self.reset()
         return run_command
 
@@ -83,6 +90,10 @@ def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_co
             maybe_of(executor.stderr).map(lambda x: str(x))) \
         .with_workdir(executor.workdir) \
         .with_resource(resource_conf)
+
+    if executor.env:
+        [command_builder.with_env(env_name, env_value)
+         for env_name, env_value in executor.env.items()]
 
     [command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
      for volume_conf in volume_confs]
