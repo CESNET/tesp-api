@@ -1,0 +1,24 @@
+{
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "cat", "./proc/cpuinfo"
+            ]
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "cat", "./cpuinfo"
+            ],
+            "workdir": "/proc"
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "./pwd"
+            ],
+            "workdir": "/bin"
+        }
+    ]
+}

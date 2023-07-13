@@ -1,0 +1,22 @@
+{
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "sleep", "5", "&&", "true"
+            ]
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "sleep", "5", "&&", "true"
+            ]
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "sleep", "5", "&&", "true"
+            ]
+        }
+    ]
+}

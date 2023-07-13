@@ -1,0 +1,33 @@
+{
+    "inputs": [
+        {
+            "path":"/data/file_direct",
+            "content":"cat /data/file_direct && cat /data/file_ftp && cat /data/file_http\n",
+            "type":"FILE"
+        },
+        {
+            "path": "/data/file_ftp",
+            "url": "ftp://anonymous:anonymous@speedtest.tele2.net/5MB.zip",
+            "type": "FILE"
+        },
+        {
+            "path": "/data/file_http",
+            "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+            "type": "FILE"
+        }
+    ],
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "sh", "/data/file_direct"
+            ]
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "sh", "/data/file_direct"
+            ]
+        }
+    ]
+}

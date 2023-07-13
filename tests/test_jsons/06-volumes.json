@@ -1,0 +1,26 @@
+{
+    "inputs": [
+        {
+            "path": "/data/file_http",
+            "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+            "type": "FILE"
+        }
+    ],
+    "volumes": [
+        "/vol/"
+    ],
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "cp", "/data/file_http", "/vol/", "&&", "cat", "/vol/file_http"
+            ]
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "cat", "/vol/file_http"
+            ]
+        }
+    ]
+}
