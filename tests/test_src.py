@@ -58,11 +58,51 @@ def _wait_for_state(id, state, timeout = 10):
         
         # raise exception on wrong state (not right state and not RUNNING state)
         if s != "INITIALIZING" and s != "QUEUED" and s != "RUNNING":
-            raise Exception(f"_wait_for_state(): unexpected state. Expected: {state}, given: {s}")
+            raise Exception(f"_wait_for_state(): unexpected state. ID: {id}, expected: {state}, given: {s}")
         
         time.sleep(1)
         
-    raise Exception("_wait_for_state(): timeout")
+    raise Exception(f"_wait_for_state(): timeout. ID: {id}, state: {s}")
+
+def _test_simple(json, timeout, state = 'COMPLETE'):
+    # submit task
+    json = _open_json(json)
+    resp = _post_request("/v1/tasks", payload=json)
+
+    # get ID of the already started task
+    id = _gnv(resp, "id")
+
+    # try to get status of the task
+    return _wait_for_state(id, state, timeout)
+
+def _test_activity(json, timeout_running, timeout_complete, state = 'COMPLETE'):
+    # submit task
+    json = _open_json(json)
+    resp = _post_request("/v1/tasks", payload=json)
+
+    # get ID of the already started task
+    id = _gnv(resp, "id")
+
+    # try to get status of the task
+    if not _wait_for_state(id, 'RUNNING', timeout_running):
+        return False
+    return _wait_for_state(id, state, timeout_complete)
+
+def _test_sequence_simple(jsons, timeout, state = 'COMPLETE'):
+    for file_name in jsons:
+        json = f'{file_name}.json'
+        if not _test_simple(json, timeout, state):
+            return False
+
+    return True
+
+def _test_sequence_activity(jsons, timeout_running, timeout_complete, state = 'COMPLETE'):
+    for file_name in jsons:
+        json = f'{file_name}.json'
+        if not _test_activity(json, timeout_running, timeout_complete, state):
+            return False
+
+    return True
 
 
 def test_version():
@@ -92,169 +132,30 @@ def test_empty_task_list():
     assert tasks
     assert isinstance(tasks, list)
 
-def _test_submit_task_complete():
-    # submit task
-    json = _open_json("01_state_true.json")
-    resp = _post_request("/v1/tasks", payload=json)
+def test_submit_task_complete():
+    assert _test_activity("01_state_true.json", 10, 30, 'COMPLETE')
 
-    # get ID of the already started task
-    id = _gnv(resp, "id")
+def test_submit_task_fail():
+    assert _test_activity("02_state_false.json", 10, 30, 'EXECUTOR_ERROR')
 
-    time.sleep(10)
+def test_submit_task_multi_complete():
+    assert _test_activity("03-multi_true.json", 10, 30, 'COMPLETE')
 
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "COMPLETE"
-
-def _test_submit_task_fail():
-    # submit task
-    json = _open_json("02_state_false.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    time.sleep(10)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "EXECUTOR_ERROR"
-
-def _test_submit_task_multi_complete():
-    # submit task
-    json = _open_json("03-multi_true.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    time.sleep(10)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "COMPLETE"
-
-def _test_submit_task_multi_fail_1():
-    # submit task
-    json = _open_json("03-multi_false_1.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    time.sleep(10)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "EXECUTOR_ERROR"
-
-def _test_submit_task_multi_fail_2():
-    # submit task
-    json = _open_json("03-multi_false_2.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    time.sleep(10)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "EXECUTOR_ERROR"
-
-def _test_submit_task_multi_fail_3():
-    # submit task
-    json = _open_json("03-multi_false_3.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    time.sleep(10)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "RUNNING"
-
-    time.sleep(30)
-
-    # try to get status of the task
-    resp = _get_request(f"/v1/tasks/{id}")
-    assert _gnv(resp, "state") == "EXECUTOR_ERROR"
+def test_submit_task_multi_fail():
+    jsons = ["03-multi_false_1", "03-multi_false_2", "03-multi_false_3"]
+    assert _test_sequence_activity(jsons, 10, 60, 'EXECUTOR_ERROR')
 
 def test_inputs():
-    # submit task
-    json = _open_json("04-inputs.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    # try to get status of the task
-    assert _wait_for_state(id, "COMPLETE", 30)
+    assert _test_simple("04-inputs.json", 120)
 
 def test_volumes():
-    # submit task
-    json = _open_json("06-volumes.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    # try to get status of the task
-    assert _wait_for_state(id, "COMPLETE", 30)
+    assert _test_simple("06-volumes.json", 30)
 
 def test_envs():
-    # submit task
-    json = _open_json("envs.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    # try to get status of the task
-    assert _wait_for_state(id, "COMPLETE", 30)
+    assert _test_simple("envs.json", 30)
 
 def test_workdir():
-    # submit task
-    json = _open_json("workdir.json")
-    resp = _post_request("/v1/tasks", payload=json)
-
-    # get ID of the already started task
-    id = _gnv(resp, "id")
-
-    # try to get status of the task
-    assert _wait_for_state(id, "COMPLETE", 30)
+    assert _test_simple("workdir.json", 30)
 
 def test_stdout():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stdout-test-1', 'stdout-test-2', 'stdout-check']
@@ -263,4 +164,3 @@ def test_stdout():
 def test_stderr():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stderr-test-1', 'stderr-test-2', 'stderr-check']
     assert _test_sequence_simple(jsons, 60)
-
