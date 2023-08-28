@@ -256,4 +256,11 @@ def test_workdir():
     # try to get status of the task
     assert _wait_for_state(id, "COMPLETE", 30)
 
+def test_stdout():
+    jsons = ['std-prepare-1', 'std-prepare-2', 'stdout-test-1', 'stdout-test-2', 'stdout-check']
+    assert _test_sequence_simple(jsons, 60)
+
+def test_stderr():
+    jsons = ['std-prepare-1', 'std-prepare-2', 'stderr-test-1', 'stderr-test-2', 'stderr-check']
+    assert _test_sequence_simple(jsons, 60)
 

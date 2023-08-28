@@ -1,0 +1,21 @@
+{
+    "volumes": [
+        "/data/"
+    ],
+
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "echo", "hello-world-stdout"
+            ],
+            "stdout": "/data/test-std"
+        },
+        {
+            "image": "ubuntu",
+            "command": [
+                "grep", "-Fxq", "hello-world-stdout", "/data/test-std"
+            ]
+        }
+    ]
+}

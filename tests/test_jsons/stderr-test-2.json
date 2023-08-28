@@ -1,0 +1,26 @@
+{
+    "inputs": [
+        {
+            "path": "/data/script.sh",
+            "content": "echo hello-world-stderr >&2\n",
+            "type": "FILE"
+        }
+    ],
+    "outputs": [
+        {
+            "path": "/data/test-std",
+            "url": "ftp://anonymous:anonymous@galaxy:2121/test-std",
+            "type": "FILE"
+        }
+    ],
+
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "sh", "/data/script.sh"
+            ],
+            "stderr": "/data/test-std"
+        }
+    ]
+}

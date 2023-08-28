@@ -1,0 +1,19 @@
+{
+    "outputs": [
+        {
+            "path": "/data/test-std",
+            "url": "ftp://anonymous:anonymous@galaxy:2121/test-std",
+            "type": "FILE"
+        }
+    ],
+
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "echo", "hello-world-stdout"
+            ],
+            "stdout": "/data/test-std"
+        }
+    ]
+}

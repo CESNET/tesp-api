@@ -1,0 +1,28 @@
+{
+    "inputs": [
+        {
+            "path": "/data/script.sh",
+            "content": "echo hello-world-stderr >&2\n",
+            "type": "FILE"
+        }
+    ],
+    "volumes": [
+        "/data/"
+    ],
+
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "sh", "/data/script.sh"
+            ],
+            "stderr": "/data/test-std"
+        },
+        {
+            "image": "ubuntu",
+            "command": [
+                "grep", "-Fxq", "hello-world-stderr", "/data/test-std"
+            ]
+        }
+    ]
+}
