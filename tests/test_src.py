@@ -133,23 +133,23 @@ def test_empty_task_list():
     assert isinstance(tasks, list)
 
 def test_submit_task_complete():
-    assert _test_activity("01_state_true.json", 10, 30, 'COMPLETE')
+    assert _test_activity("state_true.json", 10, 30, 'COMPLETE')
 
 def test_submit_task_fail():
-    assert _test_activity("02_state_false.json", 10, 30, 'EXECUTOR_ERROR')
+    assert _test_activity("state_false.json", 10, 30, 'EXECUTOR_ERROR')
 
 def test_submit_task_multi_complete():
-    assert _test_activity("03-multi_true.json", 10, 30, 'COMPLETE')
+    assert _test_activity("multi_true.json", 10, 30, 'COMPLETE')
 
 def test_submit_task_multi_fail():
-    jsons = ["03-multi_false_1", "03-multi_false_2", "03-multi_false_3"]
+    jsons = ["multi_false_1", "multi_false_2", "multi_false_3"]
     assert _test_sequence_activity(jsons, 10, 60, 'EXECUTOR_ERROR')
 
 def test_inputs():
-    assert _test_simple("04-inputs.json", 120)
+    assert _test_simple("inputs.json", 120)
 
 def test_volumes():
-    assert _test_simple("06-volumes.json", 30)
+    assert _test_simple("volumes.json", 30)
 
 def test_envs():
     assert _test_simple("envs.json", 30)
