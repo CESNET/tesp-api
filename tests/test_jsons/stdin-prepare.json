@@ -1,0 +1,17 @@
+{
+    "outputs": [
+        {
+            "path": "/data/file_s3",
+            "url": "s3://root:123456789@galaxy:9000/test/stdin.txt",
+            "type": "FILE"
+        }
+    ],
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "echo", "-n", "hello-world", ">", "/data/file_s3"
+            ]
+        }
+    ]
+}

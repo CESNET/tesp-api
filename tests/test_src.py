@@ -161,6 +161,10 @@ def test_envs():
 def test_workdir():
     assert _test_simple("workdir.json", 30)
 
+def test_stdin():
+    jsons = ['stdin-prepare', 'stdin-test']
+    assert _test_sequence_simple(jsons, 120)
+
 def test_stdout():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stdout-test-1', 'stdout-test-2', 'stdout-check']
     assert _test_sequence_simple(jsons, 120)
