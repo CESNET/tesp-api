@@ -49,11 +49,13 @@ class DockerRunCommandBuilder:
                      stdout: Maybe[str] = Nothing, stderr: Maybe[str] = Nothing):
         command_str = " ".join(command)
         self._command = Just(command_str) if command_str else Nothing
+
+        # sh -c '' # there probably must be ' instead of " because of the passing unresolved envs into the container
         self._command = self._command.map(lambda _command:
-                                          f'sh -c "{_command}'
+                                          f'sh -c \'{_command}'
                                           f'{stdin.maybe("", lambda x: " <" + x)}'
                                           f'{stdout.maybe("", lambda x: " 1>" + x)}'
-                                          f'{stderr.maybe("", lambda x: " 2>" + x)}"')
+                                          f'{stderr.maybe("", lambda x: " 2>" + x)}\'')
         return self
 
     def reset(self) -> None:
