@@ -37,7 +37,7 @@ class TesServiceInfo(BaseModel):
                                                                                    'be human readable and provide '
                                                                                    'information about the service.')
 
-    organisation: TesServiceOrganization = Field(..., description='Organization providing the service')
+    organization: TesServiceOrganization = Field(..., description='Organization providing the service')
     contactUrl: HttpUrl = Field(None, example='mailto:support@example.com',
                                 description='URL of the contact for the provider of this'
                                             'service, e.g. a link to a contact form (RFC 3986 format), or an email ('
