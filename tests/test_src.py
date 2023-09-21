@@ -1,4 +1,3 @@
-#from starlette.testclient import TestClient
 
 import time
 import requests
@@ -8,10 +7,8 @@ import sys
 sys.path.append('/app')
 
 from tesp_api import __version__
-from tesp_api.tesp_api import app
 
 base_url = "http://localhost:8080"
-#client = TestClient(app, base_url=base_url)
 
 def _gnv(data, key):
     """Get a nested value from a dictionary using dot notation."""
@@ -26,8 +23,6 @@ def _gnv(data, key):
 
 def _get_request(url):
     """Sent a GET HTTP request, test the status, jsonization and return the response in JSON."""
-    #return client.get(url)
-    #return requests.get(f"{base_url}{url}")
     resp = requests.get(f"{base_url}{url}")
     assert resp.status_code == 200
     assert resp.json()
@@ -35,8 +30,6 @@ def _get_request(url):
 
 def _post_request(url, payload):
     """Sent a POST HTTP request, test the status, jsonization and return the response in JSON."""
-    #return client.get(url)
-    #return requests.get(f"{base_url}{url}")
     resp = requests.post(f"{base_url}{url}", json=payload)
     assert resp.status_code == 200
     assert resp.json()
