@@ -188,11 +188,11 @@ class TesTask(BaseModel):
     inputs: List[TesTaskInput] = Field(
         None, description="Input files that will be used by the task. Inputs will be downloaded"
                           " and mounted into the executor container as defined by the task request document",
-        example=[TesTaskInput(path='/data/file1', type=TesTaskIOType.FILE)])
+        example=[TesTaskInput(path='/data/input-file', url="s3://my-object-store/input-file-1", type=TesTaskIOType.FILE)])
 
     outputs: List[TesTaskOutput] = Field(
         None, description="Output files. Outputs will be uploaded from the executor container to long-term storage.",
-        example=[{"path": "/data/outfile", "url": "s3://my-object-store/outfile-1", "type": "FILE"}])
+        example=[TesTaskOutput(path='/data/output-file', url="s3://my-object-store/output-file-1", type=TesTaskIOType.FILE)])
 
     resources: TesTaskResources = Field(None, description="Resources describes the resources requested by a task.")
     executors: List[TesTaskExecutor] = Field(..., description='An array of executors to be run. Each of the executors'
