@@ -1,12 +1,12 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Union
 from pathlib import Path
 from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 from pydantic.class_validators import root_validator
 
-from tesp_api.utils.types import FtpUrl
+from tesp_api.utils.types import AnyUrl, FtpUrl, S3Url, HttpUrl
 from tesp_api.repository.model.py_object_id import PyObjectId
 
 
@@ -37,7 +37,7 @@ class TesTaskInput(BaseModel):
     name: str = None
     description: str = None
 
-    url: FtpUrl = Field(
+    url: Union[S3Url, FtpUrl, HttpUrl] = Field(
         None, description='REQUIRED, unless "content" is set. URL in long term storage, for example: '
                           ' - s3://my-object-store/file1'
                           ' - gs://my-bucket/file2'
@@ -67,7 +67,7 @@ class TesTaskOutput(BaseModel):
     description: str = Field(
         None, description="Optional users provided description field, can be used for documentation.")
 
-    url: FtpUrl = Field(..., description='URL for the file to be copied by the TES server '
+    url: Union[S3Url, FtpUrl, HttpUrl] = Field(..., description='URL for the file to be copied by the TES server '
                                          'after the task is complete. For Example: '
                                          ' - s3://my-object-store/file1'
                                          ' - gs://my-bucket/file2'
@@ -151,7 +151,7 @@ class TesTaskExecutorLog(BaseModel):
 
 
 class TesTaskOutputFileLog(BaseModel):
-    url: FtpUrl = Field(..., example='s3://bucket/file.txt',
+    url: Union[S3Url, FtpUrl, HttpUrl] = Field(..., example='s3://bucket/file.txt',
                         description='URL of the file in storage, e.g. s3://bucket/file.txt')
     path: Path = Field(..., description='Path of the file inside the container. Must be an absolute path.')
     size_bytes: str = Field(..., example='1024',
@@ -188,11 +188,11 @@ class TesTask(BaseModel):
     inputs: List[TesTaskInput] = Field(
         None, description="Input files that will be used by the task. Inputs will be downloaded"
                           " and mounted into the executor container as defined by the task request document",
-        example=[TesTaskInput(path='/data/file1', type=TesTaskIOType.FILE)])
+        example=[TesTaskInput(path='/data/input-file', url="s3://my-object-store/input-file-1", type=TesTaskIOType.FILE)])
 
     outputs: List[TesTaskOutput] = Field(
         None, description="Output files. Outputs will be uploaded from the executor container to long-term storage.",
-        example=[{"path": "/data/outfile", "url": "s3://my-object-store/outfile-1", "type": "FILE"}])
+        example=[TesTaskOutput(path='/data/output-file', url="s3://my-object-store/output-file-1", type=TesTaskIOType.FILE)])
 
     resources: TesTaskResources = Field(None, description="Resources describes the resources requested by a task.")
     executors: List[TesTaskExecutor] = Field(..., description='An array of executors to be run. Each of the executors'

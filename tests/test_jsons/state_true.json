@@ -1,0 +1,10 @@
+{
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "sleep", "20", "&&", "true"
+            ]
+        }
+    ]
+}

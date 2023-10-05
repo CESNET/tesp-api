@@ -28,12 +28,12 @@ RUN buildDeps="build-essential" \
 # Install poetry
 ENV POETRY_VERSION=1.1.13
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python && \
-    chmod a+x /opt/poetry/bin/poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Copy python requirements and install runtime deps
 WORKDIR $PYSETUP_PATH
-COPY ./poetry.lock ./pyproject.toml ./
+#COPY ./poetry.lock ./pyproject.toml ./
+COPY ./pyproject.toml ./
 RUN poetry install --no-dev
 
 

@@ -1,0 +1,29 @@
+{
+    "inputs": [
+        {
+            "path":"/data/script",
+            "content":"echo hello_world | tee /data/upload_ftp /data/upload_s3\n",
+            "type":"FILE"
+        }
+    ],
+    "outputs": [
+        {
+            "path": "/data/upload_ftp",
+            "url": "ftp://anonymous:anonymous@galaxy:2121/upload.txt",
+            "type": "FILE"
+        },
+        {
+            "path": "/data/upload_s3",
+            "url": "s3://root:123456789@galaxy:9000/test/upload.txt",
+            "type": "FILE"
+        }
+    ],
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "sh", "/data/script"
+            ]
+        }
+    ]
+}

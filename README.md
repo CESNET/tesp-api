@@ -1,9 +1,9 @@
 # TESP API
 
-[![GitHub issues](https://img.shields.io/github/issues/ndopj/tesp-api)](https://github.com/ndopj/tesp-api/issues)
+[![GitHub issues](https://img.shields.io/github/issues/CESNET/tesp-api)](https://github.com/CESNET/tesp-api/issues)
 [![poetry](https://img.shields.io/badge/maintained%20with-poetry-informational.svg)](https://python-poetry.org/)
 [![python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/download)
-[![last-commit](https://img.shields.io/github/last-commit/ndopj/tesp-api)]()
+[![last-commit](https://img.shields.io/github/last-commit/CESNET/tesp-api)]()
 
 This project is an effort to create Open-source implementation of a task execution engine based on the [TES standard](https://github.com/ga4gh/task-execution-schemas)
 distributing executions to services exposing [Pulsar](https://github.com/galaxyproject/pulsar) application. For more details
@@ -12,6 +12,67 @@ is a Python server application that allows a [Galaxy](https://github.com/galaxyp
 project was to modify the `Pulsar` project (e.g. via forking) so its Rest API would be compatible with the `TES` standard.
 Later a decision was made that rather a separate microservice will be created, decoupled from the `Pulsar`, implementing the `TES`
 standard and distributing `TES` tasks execution to `Pulsar` applications.
+
+## Quick start
+
+### Deploy
+The most straightforward way to deploy the TESP is to use Docker Compose.
+```
+docker compose up -d --build
+```
+Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
+
+### Usage
+If the TESP is running, you can try to submit a task. One way is to use cURL. Although the project is still in development, the TESP should be compatible with TES so you can try TES clients such as Snakemake or Nextflow. The example below shows how to submit task using cURL.
+
+#### 1. Create JSON file
+The first step you need to take is to prepare JSON file with the task. For inspiration you can use [tests](https://github.com/CESNET/tesp-api/tree/dev/tests/test_jsons) located in this repository, or [TES documentation](https://ga4gh.github.io/task-execution-schemas/docs/).  
+
+Example JSON file:
+```
+{
+  "inputs": [
+    {
+      "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.5.tar.xz",
+      "path": "/data/kernel.tar.gz",
+      "type": "FILE"
+    }
+  ],
+  "executors": [
+    {
+      "image": "ubuntu:20.04",
+      "command": [
+        "/bin/sha1sum",
+        "./kernel.tar.gz"
+      ],
+      "workdir": "/data/",
+      "stdout": "/tmp/stdout.log",
+      "stderr": "/tmp/stderr.log",
+    }
+  ]
+}
+```
+#### 2. Submit task
+Please check the URL of the running TES and the file with the task you just created.
+```
+curl http://localhost:8080/v1/tasks -X POST -H "Content-Type: application/json" -d $(sed -e "s/ //g" example.json | tr -d '\n')
+```
+(The only reason for the subshell is to remove whitespaces and newlines.)  
+After the task is submitted, the endpoint returns the task ID. This is usefull to check the task status.
+
+#### 3. Check the task status
+There are more usefull endpoints to check the task status.  
+
+List all tasks:
+```
+curl "http://localhost:8080/v1/tasks"
+```
+
+Check the specific task status (enter your task ID):
+```
+curl "http://localhost:8080/v1/tasks/<id>?view=FULL"
+```
+
 
 &nbsp;
 ## Getting Started
@@ -42,7 +103,7 @@ instead of starting the project locally without `docker`. In that case only thos
 
 ### Configuring TESP API
 `TESP API` uses [dynaconf](https://www.dynaconf.com/) for its configuration. Configuration is currently set up by using
-[./settings.toml](https://github.com/ndopj/tesp-api/blob/main/settings.toml) file. This file declares sections which represent different environments for `TESP API`. Default section
+[./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml) file. This file declares sections which represent different environments for `TESP API`. Default section
 is currently used for local development without `docker`. Also, all the properties from default section are propagated
 to other sections as well unless they are overridden in the specific section itself. So for example if following `settings.toml`
 file is used
@@ -55,14 +116,14 @@ logging.level = "DEBUG"
 db.mongodb_uri = "mongodb://tesp-db:27017"
 ```
 then dev-docker environment will use property `logging.level = DEBUG` as well, while property `db.mongodb_uri`
-gets overridden to url of mongodb in the docker environment. `dev-docker` section in current [./settings.toml](https://github.com/ndopj/tesp-api/blob/main/settings.toml)
-file is set up to support [./docker-compose.yaml](https://github.com/ndopj/tesp-api/blob/main/docker-compose.yaml) for development infrastructure.  
+gets overridden to url of mongodb in the docker environment. `dev-docker` section in current [./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml)
+file is set up to support [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) for development infrastructure.  
 To apply different environment (i.e. to switch which section will be picked by `TESP API`) environment variable
 `FASTAPI_PROFILE` must be set to the concrete name of such section (e.g. `FASTAPI_PROFILE=dev-docker` which can be seen
-in the [./docker/tesp_api/Dockerfile](https://github.com/ndopj/tesp-api/blob/main/docker/tesp_api/Dockerfile))  
+in the [./docker/tesp_api/Dockerfile](https://github.com/CESNET/tesp-api/blob/main/docker/tesp_api/Dockerfile))  
 
 ### Configuring required services
-You can have a look at [./docker-compose.yaml](https://github.com/ndopj/tesp-api/blob/main/docker-compose.yaml) to see how
+You can have a look at [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) to see how
 the infrastructure for development should look like. Of course, you can configure those services in your preferred way if you are
 going to start the project without `docker` or if you are trying to create other than `development` environment but some things
 must remain as they are. For example, `TESP API` currently supports communication with `Pulsar` only through its Rest API and
@@ -70,11 +131,11 @@ therefore `Pulsar` must be configured in such a way.
 
 ### Current Docker services
 All the current `Docker` services which will be used when the project is started with `docker-compose` have common directory
-[./docker](https://github.com/ndopj/tesp-api/tree/main/docker) for configurations, data, logs and Dockerfiles if required.
+[./docker](https://github.com/CESNET/tesp-api/tree/main/docker) for configurations, data, logs and Dockerfiles if required.
 `docker-compose` should run out of the box, but sometimes it might happen that a problem with privileges occurs while for
 example trying to create data folder for given service. Such issues should be resolved easily manually. Always look into
-[./docker-compose.yaml](https://github.com/ndopj/tesp-api/blob/main/docker-compose.yaml) to see what directories need to mapped
-which ports to be used etc. Following services are currently defined by [./docker-compose.yaml](https://github.com/ndopj/tesp-api/blob/main/docker-compose.yaml)
+[./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) to see what directories need to mapped
+which ports to be used etc. Following services are currently defined by [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml)
 - **tesp-api** - This project itself. Depends on mongodb
 - **tesp-db**  - [MongoDB](https://www.mongodb.com/) instance for persistence layer
 - **pulsar_rest** - `Pulsar` configured to use Rest API with access to a docker instance thanks to [DIND](https://hub.docker.com/_/docker).
@@ -83,13 +144,13 @@ which ports to be used etc. Following services are currently defined by [./docke
 - **ftpserver** - online storage for `TES` tasks input/output content
 - **minio** - currently acting only as a storage backend for the `ftpserver` with simple web interface to access data.  
 
-**Folder [./docker/minio/initial_data](https://github.com/ndopj/tesp-api/tree/main/docker/minio/initial_data) contains startup
+**Folder [./docker/minio/initial_data](https://github.com/CESNET/tesp-api/tree/main/docker/minio/initial_data) contains startup
 folders for `minio` service which must be copied to the `./docker/minio/data` folder before starting up the infrastructure. Those data
 configure `minio` to start with already created bucket and user which will be used by `ftpserver` for access.**  
 
 ### Run the project
 This project uses [Poetry](https://python-poetry.org/) for `dependency management` and `packaging`. `Poetry` makes it easy
-to install libraries required by `TESP API`. It uses [./pyproject.toml](https://github.com/ndopj/tesp-api/blob/feature/TESP-0-github-proper-readme/pyproject.toml)
+to install libraries required by `TESP API`. It uses [./pyproject.toml](https://github.com/CESNET/tesp-api/blob/feature/TESP-0-github-proper-readme/pyproject.toml)
 file to obtain current project orchestration configuration. `Poetry` automatically creates virtualenv, so it's easy to run
 application immediately. You can use command `poetry config virtualenvs.in-project true` which **globally** configures
 creation of virtualenv directories directly in the project instead of the default cache folder. Then all you need to do
@@ -196,7 +257,7 @@ Since there is no CI/CD setup this is only opinionated view on how branching pol
 
 ## License
 
-[![license](https://img.shields.io/github/license/ndopj/tesp-api)](https://github.com/ndopj/tesp-api/blob/main/LICENSE.md)
+[![license](https://img.shields.io/github/license/CESNET/tesp-api)](https://github.com/CESNET/tesp-api/blob/main/LICENSE.md)
 ```
 Copyright (c) 2022 Norbert Dopjera
 

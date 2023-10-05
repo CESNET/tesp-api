@@ -98,10 +98,10 @@ async def get_service_info() -> TesServiceInfo:
         type=TesServiceType(
             group="org.ga4gh",
             artifact="tes",
-            version="0.1.0"
+            version="1.0.0"
         ),
         description="GA4GH TES Server implementation for Pulsar",
-        organisation=TesServiceOrganization(
+        organization=TesServiceOrganization(
             name="Faculty of Informatics, Masaryk University",
             url="https://www.fi.muni.cz/"
         ),

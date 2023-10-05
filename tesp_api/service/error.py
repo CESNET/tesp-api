@@ -25,6 +25,11 @@ class TaskExecutorError(Exception):
     def __init(self):
         super().__init__()
 
+class UnsupportedProtocolError(Exception):
+
+    def __init(self):
+        super().__init__()
+
 
 def repo_update_error_task_promise(task_id: ObjectId, state: TesTaskState, sys_log: Maybe[str]):
     update_query = {

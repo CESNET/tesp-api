@@ -1,0 +1,23 @@
+{
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+                "touch", "$TEST_FILE", "&&", "cat", "/tmp/test_file_42"
+            ],
+            "env": {
+                "TEST_FILE": "/tmp/test_file_42"
+            }
+        },
+        {
+            "image":"ubuntu",
+            "command":[
+                "touch", "$TEST_FILE", "&&", "touch", "$TEST_FILE_2", "&&", "cat", "/tmp/test_file_7", "&&", "cat", "/tmp/test_file_2"
+            ],
+            "env": {
+                "TEST_FILE": "/tmp/test_file_7",
+                "TEST_FILE_2": "/tmp/test_file_2"
+            }
+        }
+    ]
+}

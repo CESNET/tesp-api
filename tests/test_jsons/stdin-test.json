@@ -1,0 +1,23 @@
+{
+    "inputs": [
+        {
+            "path":"/data/script",
+            "content":"test $(sha1sum $1 | cut -d' ' -f1) = $(echo -n hello-world | sha1sum | cut -d' ' -f1)\n",
+            "type":"FILE"
+        },
+        {
+            "path": "/data/file_s3",
+            "url": "s3://root:123456789@galaxy:9000/test/stdin.txt",
+            "type": "FILE"
+        }
+    ],
+    "executors": [
+        {
+            "image": "ubuntu",
+            "command": [
+                "bash", "/data/script"
+            ],
+            "stdin": "/data/file_s3"
+        }
+    ]
+}
