@@ -13,6 +13,72 @@ project was to modify the `Pulsar` project (e.g. via forking) so its Rest API wo
 Later a decision was made that rather a separate microservice will be created, decoupled from the `Pulsar`, implementing the `TES`
 standard and distributing `TES` tasks execution to `Pulsar` applications.
 
+## Quick start
+
+### Deploy
+The most straightforward way to deploy the TESP is to use Docker Compose.
+```
+docker compose up -d --build
+```
+Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
+
+### Usage
+If the TESP is running, you can try to submit a task. One way is to use cURL. Although the project is still in development, the TESP should be compatible with TES so you can try TES clients such as Snakemake or Nextflow. The example below shows how to submit task using cURL.
+
+#### 1. Create JSON file
+The first step you need to take is to prepare JSON file with the task. For inspiration you can use [tests](https://github.com/CESNET/tesp-api/tree/dev/tests/test_jsons) located in this repository, or [TES documentation](https://ga4gh.github.io/task-execution-schemas/docs/).  
+
+Example JSON file:
+```
+{
+  "inputs": [
+    {
+      "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.5.tar.xz",
+      "path": "/data/kernel.tar.gz",
+      "type": "FILE"
+    }
+  ],
+  "resources":
+  {
+    "cpu_cores": 1.5,
+    "ram_gb": 2
+  },
+  "executors": [
+    {
+      "image": "ubuntu:20.04",
+      "command": [
+        "/bin/sha1sum",
+        "./kernel.tar.gz"
+      ],
+      "workdir": "/data/",
+      "stdout": "/tmp/stdout.log",
+      "stderr": "/tmp/stderr.log",
+    }
+  ]
+}
+```
+#### 2. Submit task
+Please check the URL of the running TES and the file with the task you just created.
+```
+curl http://localhost:8080/v1/tasks -X POST -H "Content-Type: application/json" -d $(sed -e "s/ //g" example.json | tr -d '\n')
+```
+(The only reason for the subshell is to remove whitespaces and newlines.)  
+After the task is submitted, the endpoint returns the task ID. This is usefull to check the task status.
+
+#### 3. Check the task status
+There are more usefull endpoints to check the task status.  
+
+List all tasks:
+```
+curl "http://localhost:8080/v1/tasks"
+```
+
+Check the specific task status (enter your task ID):
+```
+curl "http://localhost:8080/v1/tasks/<id>?view=FULL"
+```
+
+
 &nbsp;
 ## Getting Started
 Repository contains `docker-compose.yaml` file with infrastructure setup for current functionality which can be used to
