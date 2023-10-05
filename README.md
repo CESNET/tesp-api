@@ -38,11 +38,6 @@ Example JSON file:
       "type": "FILE"
     }
   ],
-  "resources":
-  {
-    "cpu_cores": 1.5,
-    "ram_gb": 2
-  },
   "executors": [
     {
       "image": "ubuntu:20.04",
