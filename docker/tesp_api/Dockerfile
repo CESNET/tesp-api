@@ -32,7 +32,8 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Copy python requirements and install runtime deps
 WORKDIR $PYSETUP_PATH
-COPY ./poetry.lock ./pyproject.toml ./
+#COPY ./poetry.lock ./pyproject.toml ./
+COPY ./pyproject.toml ./
 RUN poetry install --no-dev
 
 
