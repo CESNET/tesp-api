@@ -197,17 +197,6 @@ class TESJobRunner(AsynchronousJobRunner):
         script[-1] = '\n'
         return ' '.join(script)
 
-    def staging_out_command(self, script_path: str, output_files: list, api_url: str, work_dir: str):
-        """
-            Generates command for staging out of files
-        """
-        command = ["python", script_path, api_url, work_dir]
-
-        for file in output_files:
-            command.append(file)
-
-        return command
-
     def env_variables(self, job_wrapper: JobWrapper):
         """
             Get environment variables from job_wrapper
@@ -292,7 +281,6 @@ class TESJobRunner(AsynchronousJobRunner):
         tool_dir = job_wrapper.tool.tool_dir
         work_dir = job_wrapper.working_directory
         object_store_path = job_wrapper.object_store.file_path
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "util/file-staging.py")
 
         input_files = self.__get_inputs(job_wrapper)
         output_files = self.get_output_files(job_wrapper)
@@ -322,18 +310,15 @@ class TESJobRunner(AsynchronousJobRunner):
         if (staging_out_url is None):
             staging_out_url = client_args['files_endpoint']
 
-        staging_out_command = self.staging_out_command(script_path, output_files, staging_out_url, job_wrapper.working_directory)
 
         job_script = self.base_job_script([work_dir, object_store_path], work_dir, output_files, job_wrapper.tool.description)
 
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], [script_path]))
         job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], tool_files))
         job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
         job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], input_files))
 
         job_script["executors"].append(self.file_creation_executor(staging_out_image, work_dir))
         job_script["executors"].append(self.job_executor(remote_image, command_line, env_var))
-        job_script["executors"].append(self.file_staging_out_executor(staging_out_image, staging_out_command))
 
         return job_script
 
