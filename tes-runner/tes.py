@@ -212,26 +212,26 @@ class TESJobRunner(AsynchronousJobRunner):
         env_vars["_GALAXY_JOB_HOME_DIR"] = self.container_workdir
         return env_vars
 
-    def input_url(self, api_url: str, path: str):
+    def inout_url(self, api_url: str, path: str):
         """
             Get URL for path
         """
         file_link = f"{api_url}&path={path}"
         return file_link
 
-    def input_descriptors(self, api_url: str, input_paths: list, type: str = "FILE"):
+    def inout_descriptors(self, api_url: str, inout_paths: list, type: str = "FILE"):
         """
-            Get Input Descriptor for Jobfile
+            Get Input / Output Descriptor for Jobfile
         """
-        input_description = []
+        inout_description = []
 
-        for path in input_paths:
-            input_description.append({
-                "url": self.input_url(api_url, path),
+        for path in inout_paths:
+            inout_description.append({
+                "url": self.inout_url(api_url, path),
                 "path": path,
                 "type": type
             })
-        return input_description
+        return inout_description
 
     def get_job_directory_files(self, work_dir: str):
         """
@@ -313,9 +313,11 @@ class TESJobRunner(AsynchronousJobRunner):
 
         job_script = self.base_job_script([work_dir, object_store_path], work_dir, output_files, job_wrapper.tool.description)
 
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], tool_files))
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], input_files))
+        job_script["inputs"].extend(self.inout_descriptors(client_args['files_endpoint'], tool_files))
+        job_script["inputs"].extend(self.inout_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
+        job_script["inputs"].extend(self.inout_descriptors(client_args['files_endpoint'], input_files))
+
+        job_script["outputs"].extend(self.inout_descriptors(client_args['files_endpoint'], output_files))
 
         job_script["executors"].append(self.file_creation_executor(staging_out_image, work_dir))
         job_script["executors"].append(self.job_executor(remote_image, command_line, env_var))
