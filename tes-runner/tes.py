@@ -177,7 +177,9 @@ class TESJobRunner(AsynchronousJobRunner):
                 {
                     "path": os.path.join(work_dir, 'createfiles.sh'),
                     "content": self.output_file_gen_script(output_files),
+                    "type": "FILE"
                 }],
+            "outputs": [],
             "executors": [],
             "volumes": mounted_dir
         }
