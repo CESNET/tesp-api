@@ -33,7 +33,7 @@ Example JSON file:
 {
   "inputs": [
     {
-      "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.5.tar.xz",
+      "url": "http://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.5.tar.xz",
       "path": "/data/kernel.tar.gz",
       "type": "FILE"
     }
@@ -47,7 +47,7 @@ Example JSON file:
       ],
       "workdir": "/data/",
       "stdout": "/tmp/stdout.log",
-      "stderr": "/tmp/stderr.log",
+      "stderr": "/tmp/stderr.log"
     }
   ]
 }
