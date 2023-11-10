@@ -77,7 +77,7 @@ async def handle_initializing_task(event: Event) -> None:
             pulsar_path = await pulsar_operations.upload(
                 job_id, DataType.INPUT,
                 file_content=Just(content),
-                file_path=maybe_of(inputs[i].url).maybe(f'input_file_{i}', lambda x: x.path))
+                file_path=f'input_file_{i}')
             input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path})
 
         for i in range(0, len(outputs)):
@@ -120,31 +120,49 @@ async def handle_run_task(event: Event) -> None:
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    async def execute_task(executors: List[TesTaskExecutor]):
+    # init task
+    task_monad = await task_repository.update_task(
+        {'_id': task_id, "state": TesTaskState.INITIALIZING},
+        {'$set': {'state': TesTaskState.RUNNING}}
+    )
+    try:
+        task = get_else_throw(task_monad, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING)))
+
         await update_last_task_log_time(
             task_id, TesTaskState.RUNNING,
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
-        for executor in executors:
-            run_command = docker_run_command(executor, resource_conf, volume_confs, input_confs, output_confs)
-            command_start_time = datetime.datetime.now(datetime.timezone.utc)
-            command_status = await pulsar_operations.run_job(task_id, run_command)
-            command_end_time = datetime.datetime.now(datetime.timezone.utc)
-            await append_task_executor_logs(
-                task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
-                command_status['stderr'], command_status['returncode'])
-            if command_status['returncode'] != 0:
-                raise TaskExecutorError()
 
-    await Promise(lambda resolve, reject: resolve(None))\
-        .then(lambda nothing: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.INITIALIZING},
-            {'$set': {'state': TesTaskState.RUNNING}}
-        )).map(lambda task: get_else_throw(
-            task, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING))
-        )).then(lambda task: execute_task(task.executors)) \
-        .map(lambda nothing: dispatch_event('finalize_task', payload)) \
-        .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
-        .then(lambda x: x)  # invokes promise returned by error handler, otherwise acts as identity function
+        # prepare docker commands
+        docker_cmds = list()
+        for executor in task.executors:
+            run_command = docker_run_command(executor, resource_conf, volume_confs, input_confs, output_confs)
+            docker_cmds.append(run_command)
+        run_command = f"set -xe && " + " && ".join(docker_cmds)
+
+        command_start_time = datetime.datetime.now(datetime.timezone.utc)
+
+        # start the task (docker container/s) in the pulsar
+        await pulsar_operations.run_job(task_id, run_command)
+
+        # wait for the task
+        command_status = await pulsar_operations.job_status_complete(str(task_id))
+
+        command_end_time = datetime.datetime.now(datetime.timezone.utc)
+        await append_task_executor_logs(
+            task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
+            command_status['stderr'], command_status['returncode'])
+        if command_status['returncode'] != 0:
+            task = await task_repository.update_task(
+                {'_id': task_id, "state": TesTaskState.RUNNING},
+                {'$set': {'state': TesTaskState.EXECUTOR_ERROR}}
+            )
+
+            raise TaskExecutorError()
+
+        dispatch_event('finalize_task', payload)
+
+    except Exception as error:
+        pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
 
 @local_handler.register(event_name='finalize_task')
