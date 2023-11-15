@@ -113,11 +113,6 @@ def test_service_info():
     assert _gnv(data, "organization.url")
     assert _gnv(data, "version")
 
-def test_test_info():
-    data = _get_request("/v1/test-info")
-
-    assert _gnv(data, "asdf") == "asdf"
-
 def test_empty_task_list():
     data = _get_request("/v1/tasks")
 
