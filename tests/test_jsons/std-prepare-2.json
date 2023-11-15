@@ -2,7 +2,7 @@
     "inputs": [
         {
             "path": "/data/test-std",
-            "url": "ftp://anonymous:anonymous@galaxy:2121/test-std",
+            "url": "ftp://anonymous:anonymous@pytest-dts:2121/test-std",
             "type": "FILE"
         }
     ],
