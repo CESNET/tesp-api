@@ -488,11 +488,11 @@ class TESJobRunner(AsynchronousJobRunner):
         if job_id is None:
             self.put(job_wrapper)
             return
-        job_state = TESJobState(job_wrapper=job_wrapper, files_dir=self.app.config.cluster_files_directory)
+        job_state = TESJobState(job_wrapper=job_wrapper, files_dir=self.app.config.job_working_directory)
         job_state.job_id = str(job_id)
         job_state.job_wrapper = job_wrapper
         job_state.job_destination = job_wrapper.job_destination
-        job_state.user_log = os.path.join(self.app.config.cluster_files_directory, 'galaxy_%s.tes.log' % galaxy_id_tag)
+        job_state.user_log = os.path.join(self.app.config.job_working_directory, 'galaxy_%s.tes.log' % galaxy_id_tag)
         job_state.register_cleanup_file_attribute('user_log')
         if job.state == model.Job.states.RUNNING:
             log.debug("(%s/%s) is still in running state, adding to the DRM queue" % (job.id, job.job_runner_external_id))
