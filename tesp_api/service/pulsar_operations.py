@@ -68,7 +68,7 @@ class PulsarRestOperations(PulsarOperations):
         except ClientError as err:
             raise PulsarLayerConnectionError(err)
 
-    async def _job_status_complete(self, job_id: str):
+    async def job_status_complete(self, job_id: str):
         for i in range(0, self.status_max_polls):
             await asyncio.sleep(self.status_poll_interval)
             json_response = await self._pulsar_request(
