@@ -95,8 +95,7 @@ class PulsarRestOperations(PulsarOperations):
         return Promise(lambda resolve, reject: resolve(None))\
             .then(lambda nothing: self._pulsar_request(
                 path=f'/jobs/{str(job_id)}/submit', method='POST', response_type='BYTES',
-                params={'command_line': run_command}
-            )).then(lambda nothing: self._job_status_complete(str(job_id)))\
+                params={'command_line': run_command})) \
             .catch(self._reraise_custom)
 
     def download_output(self, job_id: ObjectId, file_name: str):
