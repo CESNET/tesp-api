@@ -13,4 +13,4 @@ execution:
     tesp_env:
       runner: tes_runner
       tes_master_addr: http://<tes-server-address>:8080
-      default_docker_image: hub.cerit.io/josef_handl/gtdi # prototype - for testing purpose only
+      default_docker_image: hub.cerit.io/josef_handl/tesp-test-image # prototype - for testing purpose only
