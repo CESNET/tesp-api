@@ -26,11 +26,13 @@ check_file() {
 
 
 
-check_file
+#check_file
 
 
 
-#exec $@ # <---
+exec $@ # <---
+
+
 
 #while [ ! -f "/ok" ]; do
 #	sleep 1
