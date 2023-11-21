@@ -134,10 +134,12 @@ def test_submit_task_multi_fail():
     assert _test_sequence_activity(jsons, 10, 60, 'EXECUTOR_ERROR')
 
 def test_inputs():
-    assert _test_simple("inputs.json", 180)
+    # Tests only HTTP download for now, and direct input.
+    assert _test_simple("inputs.json", 120)
 
 def test_outputs():
-    jsons = ["outputs-prepare-1", "outputs-prepare-2", "outputs-test", "outputs-check"]
+    # Tests S3 and FTP upload and download.
+    jsons = ["outputs-prepare", "outputs-prepare-check", "outputs-test", "outputs-test-check"]
     assert _test_sequence_simple(jsons, 180)
 
 def test_volumes():
