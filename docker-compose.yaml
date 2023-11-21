@@ -43,7 +43,7 @@ services:
       - "8913"
     volumes:
       - ./docker/pulsar_rest/app.yml:/opt/pysetup/app.yml
-# DIND
+# DIND - problem with resource limitation, missing cgroups inside
 #      - ./docker/pulsar_rest/data/:/opt/pysetup/files/staging/
 # DOOD
       - /opt/pysetup/files/staging/:/opt/pysetup/files/staging/
