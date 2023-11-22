@@ -46,20 +46,30 @@ class TaskRepository:
                    .map(lambda _task: RegisteredTesTask(**task)))\
             .catch(handle_data_layer_error)
 
-    def get_task(self, search_query: Dict[str, Any]) -> Promise:
-        return Promise(lambda resolve, reject: resolve(search_query)) \
+    def get_task(
+            self,
+            p_author: Maybe[str],
+            search_query: Dict[str, Any]
+            ) -> Promise:
+        author = p_author.maybe({}, lambda a: {'author': a})
+        return Promise(lambda resolve, reject: resolve({**search_query, **author})) \
             .then(self._tasks.find_one) \
             .map(lambda task: maybe_of(task)
                  .map(lambda _task: RegisteredTesTask(**_task)))\
             .catch(handle_data_layer_error)
 
-    def get_tasks(self, p_size: Maybe[int] = Nothing,
-                  p_token: Maybe[ObjectId] = Nothing,
-                  search_query: Maybe[Dict[str, Any]] = Nothing) -> Promise:
+    def get_tasks(
+            self,
+            p_author: Maybe[str],
+            p_size: Maybe[int] = Nothing,
+            p_token: Maybe[ObjectId] = Nothing,
+            search_query: Maybe[Dict[str, Any]] = Nothing
+            ) -> Promise:
         def to_size_and_query():
             token_query = p_token.maybe({}, lambda _p_token: {'_id': {'$gt': _p_token}})
             _search_query = search_query.maybe({}, lambda x: x)
-            return p_size, {**token_query, **_search_query}
+            author = p_author.maybe({}, lambda a: {'author': a})
+            return p_size, {**token_query, **_search_query, **author}
         return Promise(lambda resolve, reject: resolve(to_size_and_query())) \
             .then(lambda size_and_query: size_and_query[0].maybe(
                     self._tasks.find(size_and_query[1]),
@@ -69,9 +79,18 @@ class TaskRepository:
             .map(lambda found_tasks: (found_tasks, found_tasks[-1].id if found_tasks else None))\
             .catch(handle_data_layer_error)
 
-    def cancel_task(self, task_id: ObjectId) -> Promise:
-        return Promise(lambda resolve, reject: resolve(task_id))\
-            .then(lambda _task_id: self.update_task(
+    def cancel_task(
+            self,
+            p_author: Maybe[str],
+            task_id: ObjectId
+            ) -> Promise:
+        _id = {'_id': task_id}
+        author = p_author.maybe({}, lambda _a: {'author': _a})
+        return Promise(lambda resolve, reject: resolve({
+                **_id,
+                **author
+            })).then(self._tasks.find_one) \
+            .then(lambda _task: self.update_task(
                 {'_id': task_id},
                 {'$set': {'state': TesTaskState.CANCELED}}
             )).map(lambda updated_task: updated_task

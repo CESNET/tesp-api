@@ -27,6 +27,11 @@ class TaskExecutorError(Exception):
     def __init(self):
         super().__init__()
 
+class OAuth2TokenError(Exception):
+
+    def __init(self):
+        super().__init__()
+
 class UnsupportedProtocolError(Exception):
 
     def __init(self):
