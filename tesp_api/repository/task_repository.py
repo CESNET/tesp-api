@@ -46,6 +46,16 @@ class TaskRepository:
                    .map(lambda _task: RegisteredTesTask(**task)))\
             .catch(handle_data_layer_error)
 
+    def update_task_state(
+            self,
+            task_id: ObjectId,
+            old_state: TesTaskState,
+            new_state: TesTaskState
+        ) -> Promise:
+        search_query = {'_id': task_id, "state": old_state}
+        update_query = {'$set': {'state': new_state}}
+        return self.update_task(search_query, update_query)
+
     def get_task(
             self,
             author: Maybe[str],

@@ -89,9 +89,10 @@ async def handle_initializing_task(event: Event) -> None:
         return resource_conf, volume_confs, input_confs, output_confs
 
     await Promise(lambda resolve, reject: resolve(None))\
-        .then(lambda nothing: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.QUEUED},
-            {'$set': {'state': TesTaskState.INITIALIZING}}
+        .then(lambda nothing: task_repository.update_task_state(
+            task_id,
+            TesTaskState.QUEUED,
+            TesTaskState.INITIALIZING
         )).map(lambda updated_task: get_else_throw(
             updated_task, TaskNotFoundError(task_id, Just(TesTaskState.QUEUED))
         )).then(lambda updated_task: setup_data(
@@ -122,9 +123,10 @@ async def handle_run_task(event: Event) -> None:
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
     # init task
-    task_monad = await task_repository.update_task(
-        {'_id': task_id, "state": TesTaskState.INITIALIZING},
-        {'$set': {'state': TesTaskState.RUNNING}}
+    task_monad = await task_repository.update_task_state(
+        task_id,
+        TesTaskState.INITIALIZING,
+        TesTaskState.RUNNING
     )
     try:
         task = get_else_throw(task_monad, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING)))
@@ -163,9 +165,10 @@ async def handle_run_task(event: Event) -> None:
             command_status['returncode']
         )
         if command_status['returncode'] != 0:
-            task = await task_repository.update_task(
-                {'_id': task_id, "state": TesTaskState.RUNNING},
-                {'$set': {'state': TesTaskState.EXECUTOR_ERROR}}
+            task = await task_repository.update_task_state(
+                task_id,
+                TesTaskState.RUNNING,
+                TesTaskState.EXECUTOR_ERROR
             )
 
             raise TaskExecutorError()
@@ -195,9 +198,10 @@ async def handle_finalize_task(event: Event) -> None:
              'url': output_conf['url']}
             for output_conf in output_confs]
         ).then(lambda files_to_transfer: transfer_files(files_to_transfer))\
-        .then(lambda ignored: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.RUNNING},
-            {'$set': {'state': TesTaskState.COMPLETE}}
+        .then(lambda ignored: task_repository.update_task_state(
+            task_id,
+            TesTaskState.RUNNING,
+            TesTaskState.COMPLETE
         )).map(lambda task: get_else_throw(
             task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
         )).then(lambda ignored: pulsar_operations.erase_job(task_id))\
