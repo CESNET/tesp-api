@@ -44,8 +44,14 @@ async def create_task(
         author=token_subject)
     return await task_repository.create_task(task_to_create)\
         .map(lambda task_id: identity_with_side_effect(
-            task_id, lambda _task_id: dispatch_event("queued_task", payload={"task_id": _task_id}))
-        ).map(lambda task_id: response_from_model(TesCreateTaskResponseModel(id=str(task_id))))\
+            task_id, lambda _task_id: dispatch_event(
+                "queued_task",
+                payload={
+                    "task_id": _task_id,
+                    "author": token_subject
+                }
+            )
+        )).map(lambda task_id: response_from_model(TesCreateTaskResponseModel(id=str(task_id))))\
         .catch(api_handle_error)
 
 

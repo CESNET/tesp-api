@@ -114,6 +114,7 @@ async def handle_initializing_task(event: Event) -> None:
 async def handle_run_task(event: Event) -> None:
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
+    author: str = payload['author']
     resource_conf: dict = payload['resource_conf']
     volume_confs: List[Path] = payload['volume_confs']
     input_confs: List[dict] = payload['input_confs']
@@ -129,8 +130,11 @@ async def handle_run_task(event: Event) -> None:
         task = get_else_throw(task_monad, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING)))
 
         await update_last_task_log_time(
-            task_id, TesTaskState.RUNNING,
-            start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
+            task_id,
+            author,
+            TesTaskState.RUNNING,
+            start_time=Just(datetime.datetime.now(datetime.timezone.utc))
+        )
 
         # prepare docker commands
         docker_cmds = list()
@@ -149,8 +153,15 @@ async def handle_run_task(event: Event) -> None:
 
         command_end_time = datetime.datetime.now(datetime.timezone.utc)
         await append_task_executor_logs(
-            task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
-            command_status['stderr'], command_status['returncode'])
+            task_id,
+            author,
+            TesTaskState.RUNNING,
+            command_start_time,
+            command_end_time,
+            command_status['stdout'],
+            command_status['stderr'],
+            command_status['returncode']
+        )
         if command_status['returncode'] != 0:
             task = await task_repository.update_task(
                 {'_id': task_id, "state": TesTaskState.RUNNING},
