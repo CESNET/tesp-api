@@ -48,11 +48,14 @@ class TaskRepository:
 
     def get_task(
             self,
-            p_author: Maybe[str],
+            author: Maybe[str],
             search_query: Dict[str, Any]
             ) -> Promise:
-        author = p_author.maybe({}, lambda a: {'author': a})
-        return Promise(lambda resolve, reject: resolve({**search_query, **author})) \
+        full_search_query = dict()
+        full_search_query.update(author.maybe({}, lambda a: {'author': a}))
+        full_search_query.update(search_query)
+
+        return Promise(lambda resolve, reject: resolve(full_search_query)) \
             .then(self._tasks.find_one) \
             .map(lambda task: maybe_of(task)
                  .map(lambda _task: RegisteredTesTask(**_task)))\
@@ -60,17 +63,17 @@ class TaskRepository:
 
     def get_tasks(
             self,
-            p_author: Maybe[str],
-            p_size: Maybe[int] = Nothing,
-            p_token: Maybe[ObjectId] = Nothing,
+            author: Maybe[str],
+            page_size: Maybe[int] = Nothing,
+            page_token: Maybe[ObjectId] = Nothing,
             search_query: Maybe[Dict[str, Any]] = Nothing
             ) -> Promise:
-        def to_size_and_query():
-            token_query = p_token.maybe({}, lambda _p_token: {'_id': {'$gt': _p_token}})
-            _search_query = search_query.maybe({}, lambda x: x)
-            author = p_author.maybe({}, lambda a: {'author': a})
-            return p_size, {**token_query, **_search_query, **author}
-        return Promise(lambda resolve, reject: resolve(to_size_and_query())) \
+        full_search_query = dict()
+        full_search_query.update(author.maybe({}, lambda a: {'author': a}))
+        full_search_query.update(page_token.maybe({}, lambda _page_token: {'_id': {'$gt': _page_token}}))
+        full_search_query.update(search_query.maybe({}, lambda x: x))
+
+        return Promise(lambda resolve, reject: resolve((page_size, full_search_query))) \
             .then(lambda size_and_query: size_and_query[0].maybe(
                     self._tasks.find(size_and_query[1]),
                     lambda x: self._tasks.find(size_and_query[1]).limit(x)
@@ -84,12 +87,12 @@ class TaskRepository:
             p_author: Maybe[str],
             task_id: ObjectId
             ) -> Promise:
-        _id = {'_id': task_id}
-        author = p_author.maybe({}, lambda _a: {'author': _a})
-        return Promise(lambda resolve, reject: resolve({
-                **_id,
-                **author
-            })).then(self._tasks.find_one) \
+        full_search_query = dict()
+        full_search_query.update({'_id': task_id})
+        full_search_query.update(p_author.maybe({}, lambda a: {'author': a}))
+
+        return Promise(lambda resolve, reject: resolve(full_search_query)) \
+            .then(self._tasks.find_one) \
             .then(lambda _task: self.update_task(
                 {'_id': task_id},
                 {'$set': {'state': TesTaskState.CANCELED}}
