@@ -8,6 +8,7 @@ from pydantic.main import BaseModel
 from pymonad.maybe import Nothing, Maybe
 from fastapi.params import Query, Depends
 
+from tesp_api.config.properties import properties
 from tesp_api.repository.model.task import TesTaskView
 from tesp_api.api.model.response_models import ErrorResponseModel
 from tesp_api.service.error import OAuth2TokenError
@@ -67,6 +68,9 @@ async def list_query_params(name_prefix: Optional[str] = qry_var_name_prefix,
 
 
 def parse_verify_token(token = Depends(oauth2_scheme)):
+    if not properties.oauth.enable:
+        return None
+
     try:
         subject = verify_token(token)
         return subject

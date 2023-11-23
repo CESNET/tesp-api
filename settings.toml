@@ -7,6 +7,8 @@ pulsar.status.max_polls = 100
 logging.level = "DEBUG"
 logging.output_json = false
 
+oauth.enable = false
+
 
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
