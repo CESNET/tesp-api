@@ -28,12 +28,12 @@ def _get_request(url):
     assert resp.json()
     return resp.json()
 
-def _post_request(url, payload):
+def _post_request(url, payload={}):
     """Sent a POST HTTP request, test the status, jsonization and return the response in JSON."""
     resp = requests.post(f"{base_url}{url}", json=payload)
     assert resp.status_code == 200
-    assert resp.json()
-    return resp.json()
+    assert resp
+    return resp
 
 def _open_json(filename):
     with open(f"tests/test_jsons/{filename}", 'r') as f:
@@ -60,7 +60,7 @@ def _wait_for_state(id, state, timeout = 10):
 def _test_simple(json, timeout, state = 'COMPLETE'):
     # submit task
     json = _open_json(json)
-    resp = _post_request("/v1/tasks", payload=json)
+    resp = _post_request("/v1/tasks", payload=json).json()
 
     # get ID of the already started task
     id = _gnv(resp, "id")
@@ -71,7 +71,7 @@ def _test_simple(json, timeout, state = 'COMPLETE'):
 def _test_activity(json, timeout_running, timeout_complete, state = 'COMPLETE'):
     # submit task
     json = _open_json(json)
-    resp = _post_request("/v1/tasks", payload=json)
+    resp = _post_request("/v1/tasks", payload=json).json()
 
     # get ID of the already started task
     id = _gnv(resp, "id")
@@ -162,3 +162,10 @@ def test_stdout():
 def test_stderr():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stderr-test-1', 'stderr-test-2', 'stderr-check']
     assert _test_sequence_simple(jsons, 180)
+
+def test_task_cancel():
+    response = _test_simple("cancel.json", 60, "RUNNING")
+    task_id = _gnv(response, "id")
+    assert task_id
+    _post_request(f"/v1/tasks/{task_id}:cancel")
+    assert _wait_for_state(task_id, "CANCELED", 60)
