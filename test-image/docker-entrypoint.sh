@@ -28,7 +28,7 @@ check_file() {
 
 #check_file
 
-
+source activate __fastqc@0.11.9
 
 exec $@ # <---
 
