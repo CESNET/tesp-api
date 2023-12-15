@@ -143,14 +143,19 @@ class TESJobRunner(AsynchronousJobRunner):
         }
         return file_executor
 
-    def job_executor(self, remote_image: str, command_line: str, env: dict):
+    def job_executor(self, remote_image: str, command_line: str, env: dict, work_dir: str):
         """
         Returns the executor for executing jobs
         """
+        command_list = shlex.split(command_line)
+        replacements = {'../outputs/tool_stdout': 'tool_stdout',
+                        '../outputs/tool_stderr;': 'tool_stderr;'}
+        command_list = [replacements.get(item, item) for item in command_list]
+
         job_executor = {
-            "workdir": "/",
+            "workdir": work_dir,
             "image": remote_image,
-            "command": shlex.split(command_line),
+            "command": command_list,
             "env": env
         }
         return job_executor
@@ -280,6 +285,9 @@ class TESJobRunner(AsynchronousJobRunner):
         """
         Returns the Job script with required configurations of the job
         """
+        log.info("\nJOB WRAPPER:\n")
+        log.info(job_wrapper)
+        log.info("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         tool_dir = job_wrapper.tool.tool_dir
         work_dir = job_wrapper.working_directory
         object_store_path = job_wrapper.object_store.file_path
@@ -322,7 +330,7 @@ class TESJobRunner(AsynchronousJobRunner):
         job_script["outputs"].extend(self.inout_descriptors(client_args['files_endpoint'], output_files))
 
         job_script["executors"].append(self.file_creation_executor(staging_out_image, work_dir))
-        job_script["executors"].append(self.job_executor(remote_image, command_line, env_var))
+        job_script["executors"].append(self.job_executor(remote_image, command_line, env_var, work_dir))
 
         return job_script
 

@@ -58,6 +58,8 @@ class PulsarRestOperations(PulsarOperations):
 
     async def _pulsar_request(self, path: str, method: Literal['GET', 'POST', 'PUT', 'DELETE'],
                               response_type: Literal['JSON', 'BYTES'], params=None, data=None):
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("REQUEST URL",f'{self.base_url}{path}')
         try:
             async with self.pulsar_client.request(
                     url=f'{self.base_url}{path}', method=method, params=params, data=data) as response:
@@ -106,15 +108,15 @@ class PulsarRestOperations(PulsarOperations):
             )).catch(self._reraise_custom)
 
     def erase_job(self, job_id: ObjectId):
-        return Promise(lambda resolve, reject: resolve(None))\
-            .then(lambda nothing: self._pulsar_request(
-                path=f'/jobs/{str(job_id)}/cancel',
-                method='PUT', response_type='BYTES'
-            )).catch(lambda error: None)\
-            .then(lambda nothing: self._pulsar_request(
-                path=f'/jobs/{str(job_id)}',
-                method='DELETE', response_type='BYTES'
-            )).catch(self._reraise_custom)
+        return Promise(lambda resolve, reject: resolve(None)) \
+           .then(lambda nothing: self._pulsar_request(
+               path=f'/jobs/{str(job_id)}/cancel',
+               method='PUT', response_type='BYTES'
+           )).catch(lambda error: None)\
+           .then(lambda nothing: self._pulsar_request(
+               path=f'/jobs/{str(job_id)}',
+               method='DELETE', response_type='BYTES'
+           )).catch(self._reraise_custom)
 
 
 class PulsarAmpqOperations(PulsarOperations):

@@ -1,3 +1,4 @@
+import os
 import re
 import datetime
 from typing import List
@@ -7,7 +8,7 @@ from pymonad.maybe import Just
 from bson.objectid import ObjectId
 from pymonad.promise import Promise
 
-from tesp_api.utils.docker import docker_run_command
+from tesp_api.utils.docker import docker_run_command, docker_stage_in_command, docker_stage_out_command
 from tesp_api.service.pulsar_service import pulsar_service
 from tesp_api.service.event_dispatcher import dispatch_event
 from tesp_api.utils.functional import get_else_throw, maybe_of
@@ -72,19 +73,24 @@ async def handle_initializing_task(event: Event) -> None:
 
         for i in range(0, len(inputs)):
             content = inputs[i].content
-            if content is None and inputs[i].url is not None:
-                content = await file_transfer_service.download_file(inputs[i].url)
-            pulsar_path = await pulsar_operations.upload(
-                job_id, DataType.INPUT,
-                file_content=Just(content),
-                file_path=f'input_file_{i}')
-            input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path})
+            pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
+            if content is not None and inputs[i].url is None:
+                #content = await file_transfer_service.download_file(inputs[i].url)
+                pulsar_path = await pulsar_operations.upload(
+                    job_id, DataType.INPUT,
+                    file_content=Just(content),
+                    file_path=f'input_file_{i}')
+            input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path, 'url':inputs[i].url})
 
         for i in range(0, len(outputs)):
+            print(outputs[i])
             pulsar_path = await pulsar_operations.upload(
                 job_id, DataType.OUTPUT,
-                file_path=maybe_of(outputs[i].url.path).maybe("", lambda x: x))
+                file_path=maybe_of(os.path.basename(outputs[i].path)).maybe("", lambda x: x))
             output_confs.append({'container_path': outputs[i].path, 'pulsar_path': pulsar_path, 'url': outputs[i].url})
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print("Pulsar path: ", pulsar_path)
+        print(output_confs)
 
         return resource_conf, volume_confs, input_confs, output_confs
 
@@ -120,6 +126,9 @@ async def handle_run_task(event: Event) -> None:
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
+    print("PAYLOAD !!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print(payload)
+
     # init task
     task_monad = await task_repository.update_task(
         {'_id': task_id, "state": TesTaskState.INITIALIZING},
@@ -132,10 +141,34 @@ async def handle_run_task(event: Event) -> None:
             task_id, TesTaskState.RUNNING,
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
 
+        print("TASK EXECUTORS !!!!!")
+        print(task.executors)
+        print("Resource conf")
+        print(resource_conf)
+        print("Volume conf")
+        print(volume_confs)
+        print("Input conf")
+        print(input_confs)
+        print("Output conf")
+        print(output_confs)
+        print("!!!!!!!!!!!!!!!!!!!!")
+
         # prepare docker commands
         docker_cmds = list()
+        # stage-in
+        stage_in_mount = payload['task_config']['inputs_directory']
+        stage_in_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
+                                        command=[],
+                                        workdir=Path("/downloads"))
+        stage_in_command = docker_stage_in_command(stage_in_exec, resource_conf, stage_in_mount, input_confs)
+        docker_cmds.append(stage_in_command)
+        
         for executor in task.executors:
+            print("Executor:")
+            print(executor)
             run_command = docker_run_command(executor, resource_conf, volume_confs, input_confs, output_confs)
+            print("Docker command:")
+            print(run_command)
             docker_cmds.append(run_command)
         run_command = f"set -xe && " + " && ".join(docker_cmds)
 
@@ -170,25 +203,34 @@ async def handle_finalize_task(event: Event) -> None:
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
     output_confs: List[dict] = payload['output_confs']
+    resource_conf: dict = payload['resource_conf']
     pulsar_outputs_dir_path: str = payload['task_config']['outputs_directory']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    async def transfer_files(files_to_transfer):
-        for file_to_transfer in files_to_transfer:
-            file_content: bytes = await pulsar_operations.download_output(task_id, file_to_transfer['file'])
-            await file_transfer_service.upload_file(file_to_transfer['url'], file_content)
+    async def transfer_files():
+        stage_out_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
+                                        command=[],
+                                        workdir=Path("/"))
+        stage_out_command = docker_stage_out_command(stage_out_exec, resource_conf, output_confs)
+        run_command = f"set -xe && " + stage_out_command
+        # start the task (docker container/s) in the pulsar
+        await pulsar_operations.run_job(task_id, run_command)
+        command_status = await pulsar_operations.job_status_complete(str(task_id))
+        # for file_to_transfer in files_to_transfer:
+        #     print(file_to_transfer)
+        #     file_content: bytes = await pulsar_operations.download_output(task_id, os.path.basename(file_to_transfer['file']))
+        #     print("File URL : ", file_to_transfer['url'])
+        #     print("File Contents: ")
+        #     print(file_content)
+        #     await file_transfer_service.upload_file(file_to_transfer['url'], file_content)
 
-    await Promise(lambda resolve, reject: resolve(None))\
-        .map(lambda nothing: [
-            {'file': output_conf['pulsar_path'].removeprefix(f'{pulsar_outputs_dir_path}/'),
-             'url': output_conf['url']}
-            for output_conf in output_confs]
-        ).then(lambda files_to_transfer: transfer_files(files_to_transfer))\
+    await Promise(lambda resolve, reject: resolve(None)) \
+        .then(lambda _: transfer_files()) \
         .then(lambda ignored: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.RUNNING},
-            {'$set': {'state': TesTaskState.COMPLETE}}
+        {'_id': task_id, "state": TesTaskState.RUNNING},
+        {'$set': {'state': TesTaskState.COMPLETE}}
         )).map(lambda task: get_else_throw(
             task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
-        )).then(lambda ignored: pulsar_operations.erase_job(task_id))\
+        )).then(lambda ignored: pulsar_operations.erase_job(task_id)) \
         .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
-        .then(lambda x: x)  # invokes promise returned by error handler, otherwise acts as identity function
+        .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function

@@ -105,8 +105,8 @@ services:
       - ./docker/ftpserver/ftpserver.json:/app/ftpserver.json
 
 # Some cloud providers may require a lower MTU!
-#networks:
-#  default:
-#    driver: bridge
-#    driver_opts:
-#      com.docker.network.driver.mtu: 1442
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1442

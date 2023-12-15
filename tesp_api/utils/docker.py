@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List
 from pathlib import Path
 
@@ -52,10 +53,10 @@ class DockerRunCommandBuilder:
 
         # sh -c '' # there probably must be ' instead of " because of the passing unresolved envs into the container
         self._command = self._command.map(lambda _command:
-                                          f'sh -c \'{_command}'
+                                          f'"{_command}'
                                           f'{stdin.maybe("", lambda x: " <" + x)}'
                                           f'{stdout.maybe("", lambda x: " 1>" + x)}'
-                                          f'{stderr.maybe("", lambda x: " 2>" + x)}\'')
+                                          f'{stderr.maybe("", lambda x: " 2>" + x)}"')
         return self
 
     def reset(self) -> None:
@@ -103,5 +104,61 @@ def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_co
      for input_conf in input_confs]
     [command_builder.with_bind_mount(output_conf['container_path'], output_conf['pulsar_path'])
      for output_conf in output_confs]
+
+    return command_builder.get_run_command()
+
+
+def docker_stage_in_command(executor: TesTaskExecutor, resource_conf: dict, bind_mount: str, input_confs: List[dict]) -> str:
+    command_builder = DockerRunCommandBuilder() \
+        .with_image(executor.image) \
+        .with_command(
+        list(map(lambda x: str(x), executor.command)),
+        maybe_of(executor.stdin).map(lambda x: str(x)),
+        maybe_of(executor.stdout).map(lambda x: str(x)),
+        maybe_of(executor.stderr).map(lambda x: str(x))) \
+        .with_workdir(executor.workdir) \
+        .with_resource(resource_conf)
+
+    command = ""
+
+    for input in input_confs:
+        if (input['url']):
+            command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
+    command = command[:-3]
+
+    command_builder._command = Just('sh -c "' + command + '"')
+
+    command_builder.with_bind_mount(executor.workdir, bind_mount)
+    if executor.env:
+        [command_builder.with_env(env_name, env_value)
+         for env_name, env_value in executor.env.items()]
+
+    return command_builder.get_run_command()
+
+def docker_stage_out_command(executor: TesTaskExecutor, resource_conf: dict, output_confs: List[dict]) -> str:
+    command_builder = DockerRunCommandBuilder() \
+        .with_image(executor.image) \
+        .with_command(
+        list(map(lambda x: str(x), executor.command)),
+        maybe_of(executor.stdin).map(lambda x: str(x)),
+        maybe_of(executor.stdout).map(lambda x: str(x)),
+        maybe_of(executor.stderr).map(lambda x: str(x))) \
+        .with_workdir(executor.workdir) \
+        .with_resource(resource_conf)
+
+    command = ""
+
+    for output in output_confs:
+        command += "curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@" \
+                   + output['container_path'] + "' '" + output['url'] + "' && "
+    command = command[:-3]
+
+    command_builder._command = Just('sh -c "' + command + '"')
+
+    [command_builder.with_bind_mount(output_conf['container_path'], output_conf['pulsar_path'])
+     for output_conf in output_confs]
+    if executor.env:
+        [command_builder.with_env(env_name, env_value)
+         for env_name, env_value in executor.env.items()]
 
     return command_builder.get_run_command()

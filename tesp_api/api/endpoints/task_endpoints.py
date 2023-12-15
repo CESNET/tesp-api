@@ -33,6 +33,9 @@ router = APIRouter()
              response_model=TesCreateTaskResponseModel,
              description=descriptions["tasks-create"])
 async def create_task(tes_task: TesTask = Body(...)) -> Response:
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print("TES TASK JSON")
+    print(tes_task.json())
     task_to_create = RegisteredTesTask(
         **tes_task.dict(),
         state=TesTaskState.QUEUED,
