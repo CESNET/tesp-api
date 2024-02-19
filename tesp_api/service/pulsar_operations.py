@@ -58,8 +58,8 @@ class PulsarRestOperations(PulsarOperations):
 
     async def _pulsar_request(self, path: str, method: Literal['GET', 'POST', 'PUT', 'DELETE'],
                               response_type: Literal['JSON', 'BYTES'], params=None, data=None):
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("REQUEST URL",f'{self.base_url}{path}')
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("REQUEST URL",f'{self.base_url}{path}')
         try:
             async with self.pulsar_client.request(
                     url=f'{self.base_url}{path}', method=method, params=params, data=data) as response:
