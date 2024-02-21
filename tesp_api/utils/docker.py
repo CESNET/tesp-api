@@ -127,8 +127,6 @@ def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_co
      for volume_conf in volume_confs]
     [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
-    #[command_builder.with_bind_mount(output_conf['container_path'], output_conf['pulsar_path'])
-    # for output_conf in output_confs]
 
     return command_builder.get_run_command_script(inputs_directory)
 
@@ -174,13 +172,6 @@ def docker_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
     for volume_conf in volume_confs:
         command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
 
-    # for output_conf in output_confs:
-    #     mount_point = get_mountpoint(output_conf['volume_name'])
-    #     if mount_point:
-    #         print("Mountpoint:")
-    #         print(mount_point)
-    #         command_builder.with_bind_mount(output_conf['container_path'],
-    #                                     mount_point + os.path.basename(output_conf['container_path']))
     if executor.env:
         [command_builder.with_env(env_name, env_value)
          for env_name, env_value in executor.env.items()]

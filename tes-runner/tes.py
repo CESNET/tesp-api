@@ -298,16 +298,10 @@ class TESJobRunner(AsynchronousJobRunner):
         work_dir = job_wrapper.working_directory
         object_store_path = job_wrapper.object_store.file_path
 
-        log.info("\n\n JobWrapper:")
-        log.info(work_dir)
         input_files = self.__get_inputs(job_wrapper)
-        # log.info(input_files)
         output_files_dict = self.get_output_files(job_wrapper)
-        log.info(output_files_dict)
         extra_files = job_wrapper.extra_filenames
-        # log.info(extra_files)
         tool_files = pulsar.client.staging.up.JobInputs(job_wrapper.command_line, extra_files).find_referenced_subfiles(tool_dir)
-        # log.info(tool_files)
 
         remote_image, staging_out_image = self.get_docker_image(job_wrapper)
 
@@ -341,13 +335,6 @@ class TESJobRunner(AsynchronousJobRunner):
 
         job_script["outputs"].extend(self.out_descriptors(client_args['files_endpoint'], output_files_dict))
 
-        log.info("Job script")
-        log.info(job_script)
-        log.info("client_args['files_endpoint']:")
-        log.info(client_args['files_endpoint'])
-
-
-        #job_script["executors"].append(self.file_creation_executor(staging_out_image, work_dir))
         job_script["executors"].append(self.job_executor(remote_image, command_line, env_var, work_dir))
 
         return job_script
@@ -401,13 +388,15 @@ class TESJobRunner(AsynchronousJobRunner):
         """
         out_dicts = []
         work_dir = job_wrapper.working_directory
+        existing_fpaths = []
         for pair in self.get_work_dir_outputs(job_wrapper):
             out_dicts.append({
                 'tes_path': work_dir + "/" + os.path.basename(pair[0]),
                 'return_path': pair[1]
             })
-        if not out_dicts:
-            for output in job_wrapper.job_io.get_output_fnames():
+            existing_fpaths.append(pair[1])
+        for output in job_wrapper.job_io.get_output_fnames():
+            if str(output) not in existing_fpaths:
                 out_dicts.append({
                     'tes_path': str(output),
                     'return_path': str(output)

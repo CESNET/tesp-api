@@ -90,8 +90,6 @@ async def handle_initializing_task(event: Event) -> None:
                     file_path=f'input_file_{i}')
             input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path, 'url':inputs[i].url})
 
-        print(output_confs)
-
         return resource_conf, volume_confs, input_confs, output_confs
 
     await Promise(lambda resolve, reject: resolve(None))\
@@ -126,9 +124,6 @@ async def handle_run_task(event: Event) -> None:
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    print("PAYLOAD !!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print(payload)
-
     # init task
     task_monad = await task_repository.update_task(
         {'_id': task_id, "state": TesTaskState.INITIALIZING},
@@ -141,18 +136,6 @@ async def handle_run_task(event: Event) -> None:
             task_id, TesTaskState.RUNNING,
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
 
-        print("TASK EXECUTORS !!!!!")
-        print(task.executors)
-        print("Resource conf")
-        print(resource_conf)
-        print("Volume conf")
-        print(volume_confs)
-        print("Input conf")
-        print(input_confs)
-        print("Output conf")
-        print(output_confs)
-        print("!!!!!!!!!!!!!!!!!!!!")
-
         # prepare docker commands
         docker_cmds = list()
         # stage-in
@@ -164,12 +147,8 @@ async def handle_run_task(event: Event) -> None:
         docker_cmds.append(stage_in_command)
         
         for executor in task.executors:
-            print("Executor:")
-            print(executor)
             run_command, script_content = docker_run_command(executor, resource_conf, volume_confs,
                                                              input_confs, output_confs, stage_in_mount)
-            print("Docker command:")
-            print(run_command)
             docker_cmds.append(run_command)
 
         await pulsar_operations.upload(
