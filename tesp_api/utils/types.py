@@ -10,6 +10,10 @@ class HttpUrl(AnyUrl):
     allowed_schemes = {'http'}
     host_required = True
 
+class HttpsUrl(AnyUrl):
+    allowed_schemes = {'https'}
+    host_required = True
+
 class S3Url(AnyUrl):
     allowed_schemes = {'s3'}
     host_required = True

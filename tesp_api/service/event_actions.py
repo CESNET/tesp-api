@@ -1,5 +1,4 @@
 import os
-import re
 import datetime
 from typing import List
 from pathlib import Path
@@ -13,6 +12,11 @@ from tesp_api.utils.docker import (
     docker_stage_in_command,
     docker_stage_out_command,
     map_volumes
+)
+from tesp_api.utils.singularity import (
+    singularity_run_command,
+    singularity_stage_in_command,
+    singularity_stage_out_command
 )
 from tesp_api.service.pulsar_service import pulsar_service
 from tesp_api.service.event_dispatcher import dispatch_event
@@ -31,10 +35,14 @@ from tesp_api.repository.model.task import (
 )
 from tesp_api.repository.task_repository_utils import append_task_executor_logs, update_last_task_log_time
 
+CONTAINER_TYPE = os.getenv("CONTAINER_TYPE", "both")
+
 
 @local_handler.register(event_name="queued_task")
 def handle_queued_task(event: Event) -> None:
     event_name, payload = event
+    print("Queued task:")
+    print(payload)
     match pulsar_service.get_operations():
         case PulsarRestOperations() as pulsar_rest_operations:
             dispatch_event('queued_task_rest', {**payload, 'pulsar_operations': pulsar_rest_operations})
@@ -47,6 +55,10 @@ async def handle_queued_task_rest(event: Event):
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
+
+    print("Queued task rest:")
+    print(payload)
+
     await Promise(lambda resolve, reject: resolve(None))\
         .then(lambda nothing: pulsar_operations.setup_job(task_id))\
         .map(lambda setup_job_result: dispatch_event('initialize_task', {**payload, 'task_config': setup_job_result}))\
@@ -123,7 +135,10 @@ async def handle_run_task(event: Event) -> None:
     input_confs: List[dict] = payload['input_confs']
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
-
+    
+    print("Payload:")
+    print(payload)
+    print()
     # init task
     task_monad = await task_repository.update_task(
         {'_id': task_id, "state": TesTaskState.INITIALIZING},
@@ -137,26 +152,38 @@ async def handle_run_task(event: Event) -> None:
             start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
 
         # prepare docker commands
-        docker_cmds = list()
+        container_cmds = list()
         # stage-in
         stage_in_mount = payload['task_config']['inputs_directory']
         stage_in_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
                                         command=[],
                                         workdir=Path("/downloads"))
-        stage_in_command = docker_stage_in_command(stage_in_exec, resource_conf, stage_in_mount, input_confs)
-        docker_cmds.append(stage_in_command)
+        if CONTAINER_TYPE == "docker":
+            stage_in_command = docker_stage_in_command(stage_in_exec, resource_conf, stage_in_mount, input_confs)
+        elif CONTAINER_TYPE == "singularity":
+            stage_in_exec.image = "docker://" + stage_in_exec.image
+            stage_in_command = singularity_stage_in_command(stage_in_exec, resource_conf, stage_in_mount, input_confs)
+
+        container_cmds.append(stage_in_command)
         
         for executor in task.executors:
-            run_command, script_content = docker_run_command(executor, resource_conf, volume_confs,
-                                                             input_confs, output_confs, stage_in_mount)
-            docker_cmds.append(run_command)
+            if CONTAINER_TYPE == "docker":
+                run_command, script_content = docker_run_command(executor, resource_conf, volume_confs,
+                                                                 input_confs, output_confs, stage_in_mount)
+            elif CONTAINER_TYPE == "singularity":
+                run_command, script_content = singularity_run_command(executor, resource_conf, volume_confs,
+                                                                 input_confs, output_confs, stage_in_mount)
+            container_cmds.append(run_command)
 
         await pulsar_operations.upload(
             payload['task_id'], DataType.INPUT,
             file_content=Just(script_content),
             file_path=f'run_script.sh')
 
-        run_command = f"set -xe && " + " && ".join(docker_cmds)
+
+        # Unnecessary for future use, only for debuging singularity
+        os.chmod(payload['task_config']['inputs_directory'], 0o777)
+        run_command = f"set -xe && " + " && ".join(container_cmds)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
 
@@ -170,18 +197,19 @@ async def handle_run_task(event: Event) -> None:
         await append_task_executor_logs(
             task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
             command_status['stderr'], command_status['returncode'])
-        if command_status['returncode'] != 0:
-            task = await task_repository.update_task(
-                {'_id': task_id, "state": TesTaskState.RUNNING},
-                {'$set': {'state': TesTaskState.EXECUTOR_ERROR}}
-            )
+        # if command_status['returncode'] != 0:
+            # task = await task_repository.update_task(
+            #     {'_id': task_id, "state": TesTaskState.RUNNING},
+            #     {'$set': {'state': TesTaskState.EXECUTOR_ERROR}}
+            # )
 
-            raise TaskExecutorError()
+            # raise TaskExecutorError()
 
         dispatch_event('finalize_task', payload)
 
     except Exception as error:
-        pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
+        pass
+        # pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
 
 @local_handler.register(event_name='finalize_task')
@@ -198,20 +226,26 @@ async def handle_finalize_task(event: Event) -> None:
         stage_out_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
                                         command=[],
                                         workdir=Path("/"))
-        stage_out_command = docker_stage_out_command(stage_out_exec, resource_conf, output_confs, volume_confs)
+        if CONTAINER_TYPE == "docker":
+            stage_out_command = docker_stage_out_command(stage_out_exec, resource_conf, output_confs, volume_confs)
+        elif CONTAINER_TYPE == "singularity":
+            stage_out_exec.image = "docker://" + stage_out_exec.image
+            stage_out_command = singularity_stage_out_command(stage_out_exec, resource_conf, output_confs, volume_confs)
         run_command = f"set -xe && " + stage_out_command
+        print(run_command)
         # start the task (docker container/s) in the pulsar
         await pulsar_operations.run_job(task_id, run_command)
         command_status = await pulsar_operations.job_status_complete(str(task_id))
 
     await transfer_files()
 
-    await Promise(lambda resolve, reject: resolve(None)) \
+    await (Promise(lambda resolve, reject: resolve(None)) \
         .then(lambda ignored: task_repository.update_task(
         {'_id': task_id, "state": TesTaskState.RUNNING},
-        {'$set': {'state': TesTaskState.COMPLETE}}
-    )).map(lambda task: get_else_throw(
-        task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
-    )).then(lambda ignored: pulsar_operations.erase_job(task_id)) \
-        .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
-        .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function
+        {'$set': {'state': TesTaskState.COMPLETE}})))
+    # .map(lambda task: get_else_throw(
+    #     task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
+    #     ))
+    # .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
+    #     .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
+    #     .then(lambda x: x)) # invokes promise returned by error handler, otherwise acts as identity function

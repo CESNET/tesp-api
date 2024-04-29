@@ -7,15 +7,19 @@ services:
       dockerfile: docker/tesp_api/Dockerfile
       target: development
     image: tesp-api
+    environment:
+      - CONTAINER_TYPE=singularity  # Set to "docker", "singularity", or "both"
     container_name: tesp-api
+    privileged: true
     ports:
       - "8080:8080"
     depends_on:
       - tesp-db
     volumes:
       - ./:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - /opt/pysetup/files/staging/:/opt/pysetup/files/staging/
+      #    extra_hosts:
+      #      - "host.docker.internal:host-gateway"
 
   tesp-db:
     image: mongo:latest

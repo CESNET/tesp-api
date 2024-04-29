@@ -17,6 +17,7 @@ class FileTransferService:
         if   url.scheme ==  "s3":  return client_s3
         elif url.scheme == "ftp":  return client_ftp
         elif url.scheme == "http": return client_http
+        elif url.scheme == "https": return client_http
         else: raise UnsupportedProtocolError()
 
     @staticmethod
