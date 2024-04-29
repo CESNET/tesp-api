@@ -135,10 +135,7 @@ async def handle_run_task(event: Event) -> None:
     input_confs: List[dict] = payload['input_confs']
     output_confs: List[dict] = payload['output_confs']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
-    
-    print("Payload:")
-    print(payload)
-    print()
+
     # init task
     task_monad = await task_repository.update_task(
         {'_id': task_id, "state": TesTaskState.INITIALIZING},
@@ -175,6 +172,9 @@ async def handle_run_task(event: Event) -> None:
                                                                  input_confs, output_confs, stage_in_mount)
             container_cmds.append(run_command)
 
+        print("Run commands:")
+        print(container_cmds)
+
         await pulsar_operations.upload(
             payload['task_id'], DataType.INPUT,
             file_content=Just(script_content),
@@ -182,7 +182,7 @@ async def handle_run_task(event: Event) -> None:
 
 
         # Unnecessary for future use, only for debuging singularity
-        os.chmod(payload['task_config']['inputs_directory'], 0o777)
+        #os.chmod(payload['task_config']['inputs_directory'], 0o777)
         run_command = f"set -xe && " + " && ".join(container_cmds)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
@@ -197,19 +197,17 @@ async def handle_run_task(event: Event) -> None:
         await append_task_executor_logs(
             task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
             command_status['stderr'], command_status['returncode'])
-        # if command_status['returncode'] != 0:
-            # task = await task_repository.update_task(
-            #     {'_id': task_id, "state": TesTaskState.RUNNING},
-            #     {'$set': {'state': TesTaskState.EXECUTOR_ERROR}}
-            # )
+        if command_status['returncode'] != 0:
+            task = await task_repository.update_task(
+            {'_id': task_id, "state": TesTaskState.RUNNING},
+            {'$set': {'state': TesTaskState.EXECUTOR_ERROR}})
 
-            # raise TaskExecutorError()
+            raise TaskExecutorError()
 
         dispatch_event('finalize_task', payload)
 
     except Exception as error:
-        pass
-        # pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
+        pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
 
 @local_handler.register(event_name='finalize_task')
