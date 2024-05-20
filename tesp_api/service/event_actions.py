@@ -232,7 +232,9 @@ async def handle_finalize_task(event: Event) -> None:
             stage_out_command = docker_stage_out_command(stage_out_exec, resource_conf, output_confs, volume_confs)
         elif CONTAINER_TYPE == "singularity":
             stage_out_exec.image = "docker://" + stage_out_exec.image
-            stage_out_command = singularity_stage_out_command(stage_out_exec, resource_conf, output_confs, volume_confs)
+            mount_job_dir = payload['task_config']['job_directory']
+            stage_out_command = singularity_stage_out_command(stage_out_exec, resource_conf,
+                                                              output_confs, volume_confs, mount_job_dir)
         run_command = f"set -xe && " + stage_out_command
         print(run_command)
         # start the task (docker container/s) in the pulsar
