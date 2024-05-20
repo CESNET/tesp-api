@@ -151,10 +151,13 @@ async def handle_run_task(event: Event) -> None:
         # prepare docker commands
         container_cmds = list()
         # stage-in
+        print("Payload:")
+        print(payload)
         stage_in_mount = payload['task_config']['inputs_directory']
         stage_in_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
                                         command=[],
                                         workdir=Path("/downloads"))
+
         if CONTAINER_TYPE == "docker":
             stage_in_command = docker_stage_in_command(stage_in_exec, resource_conf, stage_in_mount, input_confs)
         elif CONTAINER_TYPE == "singularity":
@@ -168,8 +171,9 @@ async def handle_run_task(event: Event) -> None:
                 run_command, script_content = docker_run_command(executor, resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount)
             elif CONTAINER_TYPE == "singularity":
+                mount_job_dir = payload['task_config']['job_directory']
                 run_command, script_content = singularity_run_command(executor, resource_conf, volume_confs,
-                                                                 input_confs, output_confs, stage_in_mount)
+                                                                 input_confs, output_confs, stage_in_mount, mount_job_dir)
             container_cmds.append(run_command)
 
         print("Run commands:")
