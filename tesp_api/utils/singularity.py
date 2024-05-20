@@ -83,7 +83,7 @@ class SingularityCommandBuilder:
         self.reset()
         return run_command
 
-    def get_singularity_run_command_script(self, inputs_directory: str, job_directory: str) -> Tuple[str, str]:
+    def get_singularity_run_command_script(self, inputs_directory: str) -> Tuple[str, str]:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
         bind_mounts_str = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
@@ -130,7 +130,7 @@ def singularity_run_command(executor: TesTaskExecutor, resource_conf: dict,
     return command_builder.get_singularity_run_command_script(inputs_directory)
 
 def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict, bind_mount: str,
-                                 input_confs: List[dict], inputs_directory: str) -> str:
+                                 input_confs: List[dict]) -> str:
     command_builder = SingularityCommandBuilder() \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
@@ -153,7 +153,7 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
     return command_builder.get_singularity_run_command()
 
 def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
-                                  output_confs: List[dict], volume_confs: List[dict], outputs_directory: str) -> str:
+                                  output_confs: List[dict], volume_confs: List[dict]) -> str:
     command_builder = SingularityCommandBuilder() \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
