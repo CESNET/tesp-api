@@ -123,6 +123,7 @@ def singularity_run_command(executor: TesTaskExecutor, resource_conf: dict,
         [command_builder.with_env(env_name, env_value)
          for env_name, env_value in executor.env.items()]
 
+    # This is made only for Galaxy and wil likely not work with different structure of a job
     command_builder.with_volume(volume_confs[0]['container_path'], job_directory)
     [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
@@ -153,15 +154,13 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
     return command_builder.get_singularity_run_command()
 
 def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
-                                  output_confs: List[dict], volume_confs: List[dict]) -> str:
+                                  output_confs: List[dict], volume_confs: List[dict], job_directory: str) -> str:
     command_builder = SingularityCommandBuilder() \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
         .with_resource(resource_conf)
 
     command = ""
-
-    print(command)
 
     for output in output_confs:
         command += "curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@" \
@@ -172,8 +171,8 @@ def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict
 
     command_builder._command = Just('sh -c "' + command + '"')
 
-    for volume_conf in volume_confs:
-        command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
+    # This is made only for Galaxy and wil likely not work with different structure of a job
+    command_builder.with_volume(volume_confs[0]['container_path'], job_directory)
 
     if executor.env:
         [command_builder.with_env(env_name, env_value)
