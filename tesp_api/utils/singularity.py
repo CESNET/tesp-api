@@ -71,8 +71,14 @@ class SingularityCommandBuilder:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
         #bind_mounts_str = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
-        first_key, first_value = next(iter(self._bind_mounts.items()))
-        bind_mounts_str = f'-B "{first_value}":"{first_key}"'
+        #first_key, first_value = next(iter(self._bind_mounts.items()))
+        #bind_mounts_str = f'-B "{first_value}":"{first_key}"'
+        if not self._bind_mounts.items():
+            bind_mounts_str = ""
+        else:
+        # Convert _bind_mounts.items() to a list and slice to exclude the first item
+            items = list(self._bind_mounts.items())
+            bind_mounts_str = " ".join(f'-B "{v_paths[1]}":"{v_paths[0]}"' for v_paths in items[1:])
         volumes_str     = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         singularity_image    = get_else_throw(self._singularity_image, ValueError('Singularity image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"--pwd \"{str(workdir)}\"")
