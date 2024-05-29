@@ -146,8 +146,7 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
 
     for input in input_confs:
         if (input['url']):
-            url = input['url'].replace("'", "\\'")  # Replace single quotes with escaped single quotes
-            command += f"curl -o {os.path.basename(input['pulsar_path'])} '{url}' && "
+            command += "curl -o " + os.path.basename(input['pulsar_path']) + " " + input['url'] + " && "
             #command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
     command = command[:-3]
 
