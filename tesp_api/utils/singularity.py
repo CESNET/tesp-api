@@ -77,7 +77,7 @@ class SingularityCommandBuilder:
             bind_mounts_str = ""
         else:
             items = list(self._bind_mounts.items())
-            bind_mounts_str = " ".join(f'-B "{v_paths[1]}":"{v_paths[0]}"' for v_paths in items[1:])
+            bind_mounts_str = " ".join(f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"' for v_paths in items[1:])
         volumes_str     = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         singularity_image    = get_else_throw(self._singularity_image, ValueError('Singularity image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"--pwd \"{str(workdir)}\"")
