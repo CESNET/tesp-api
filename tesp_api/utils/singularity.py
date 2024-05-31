@@ -171,8 +171,8 @@ def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict
     command_builder._command = Just('sh -c "' + command + '"')
 
     # This is made only for Galaxy and wil likely not work with different structure of a job
-    command_builder.with_bind_mount(executor.workdir, bind_mount)
-    command_builder.with_volume(volume_confs[0]['container_path'], job_directory)
+    command_builder.with_bind_mount(volume_confs[0]['container_path'], job_directory)
+    #command_builder.with_volume(volume_confs[0]['container_path'], job_directory)
 
     if executor.env:
         [command_builder.with_env(env_name, env_value)
