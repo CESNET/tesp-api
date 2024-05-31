@@ -233,7 +233,8 @@ async def handle_finalize_task(event: Event) -> None:
         elif CONTAINER_TYPE == "singularity":
             stage_out_exec.image = "docker://" + stage_out_exec.image
             mount_job_dir = payload['task_config']['job_directory']
-            stage_out_command = singularity_stage_out_command(stage_out_exec, resource_conf,
+            bind_mount = payload['task_config']['inputs_directory']
+            stage_out_command = singularity_stage_out_command(stage_out_exec, resource_conf, bind_mount,
                                                               output_confs, volume_confs, mount_job_dir)
         run_command = f"set -xe && " + stage_out_command
         print(run_command)

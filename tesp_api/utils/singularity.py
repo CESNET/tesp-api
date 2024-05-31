@@ -70,14 +70,8 @@ class SingularityCommandBuilder:
     def get_singularity_run_command(self) -> str:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
-        #bind_mounts_str = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
-        #first_key, first_value = next(iter(self._bind_mounts.items()))
-        #bind_mounts_str = f'-B "{first_value}":"{first_key}"'
-        if not self._bind_mounts:
-            bind_mounts_str = ""
-        else:
-            items = list(self._bind_mounts.items())
-            bind_mounts_str = " ".join(f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"' for v_paths in items[1:])
+        first_key, first_value = next(iter(self._bind_mounts.items()))
+        bind_mounts_str = f'-B "{first_value}":"{first_key}"'
         volumes_str     = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         singularity_image    = get_else_throw(self._singularity_image, ValueError('Singularity image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"--pwd \"{str(workdir)}\"")
@@ -146,8 +140,7 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
 
     for input in input_confs:
         if (input['url']):
-            command += "curl -o " + os.path.basename(input['pulsar_path']) + " " + input['url'] + " && "
-            #command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
+            command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
     command = command[:-3]
 
     command_builder._command = Just('sh -c "' + command + '"')
@@ -159,7 +152,7 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
 
     return command_builder.get_singularity_run_command()
 
-def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
+def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict, bind_mount: str,
                                   output_confs: List[dict], volume_confs: List[dict], job_directory: str) -> str:
     command_builder = SingularityCommandBuilder() \
         .with_image(executor.image) \
@@ -178,6 +171,7 @@ def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict
     command_builder._command = Just('sh -c "' + command + '"')
 
     # This is made only for Galaxy and wil likely not work with different structure of a job
+    command_builder.with_bind_mount(executor.workdir, bind_mount)
     command_builder.with_volume(volume_confs[0]['container_path'], job_directory)
 
     if executor.env:
