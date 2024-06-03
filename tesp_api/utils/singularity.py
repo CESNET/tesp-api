@@ -82,7 +82,7 @@ class SingularityCommandBuilder:
         self.reset()
         return run_command
 
-    def get_singularity_run_command_script(self, inputs_directory: str) -> Tuple[str, str]:
+    def get_singularity_run_command_script(self, inputs_directory: str, i: int) -> Tuple[str, str]:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
         bind_mounts_str = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
@@ -101,13 +101,13 @@ class SingularityCommandBuilder:
 
         run_command = (f'singularity exec {resources_str} {workdir_str} {env_str} '
                        f'{volumes_str} {bind_mounts_str} {singularity_image} '
-                       f'/bin/bash run_script.sh')
+                       f'/bin/bash run_script_{i}.sh')
         self.reset()
         return run_command, script_content
 
 def singularity_run_command(executor: TesTaskExecutor, resource_conf: dict,
                             volume_confs: List[dict], input_confs: List[dict],
-                            output_confs: List[dict], inputs_directory: str, job_directory: str) -> Tuple[str, str]:
+                            output_confs: List[dict], inputs_directory: str, job_directory: str, i: int) -> Tuple[str, str]:
     command_builder = SingularityCommandBuilder() \
         .with_image(executor.image) \
         .with_command(
@@ -127,7 +127,7 @@ def singularity_run_command(executor: TesTaskExecutor, resource_conf: dict,
     [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
 
-    return command_builder.get_singularity_run_command_script(inputs_directory)
+    return command_builder.get_singularity_run_command_script(inputs_directory, i)
 
 def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict, bind_mount: str,
                                  input_confs: List[dict]) -> str:
