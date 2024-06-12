@@ -78,7 +78,8 @@ class SingularityCommandBuilder:
         env_str         = " ".join(map(lambda env: f'--env {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
-        run_command = f'singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command_str}'
+        run_command = f"""singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command}"""
+        # run_command = f'singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command_str}'
         self.reset()
         return run_command
 
@@ -138,9 +139,11 @@ def singularity_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
 
     command = ""
 
-    for input in input_confs:
-        if (input['url']):
-            command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
+    for input_conf in input_confs:
+        if input_conf['url']:
+            filename = os.path.basename(input_conf['pulsar_path'])
+            command += f"""curl -o {filename} '{input_conf['url']}' && """
+            # command += "curl -o " + os.path.basename(input_conf['pulsar_path']) + " '" + input_conf['url'] + "' && "
     command = command[:-3]
 
     command_builder._command = Just('sh -c "' + command + '"')
@@ -162,8 +165,10 @@ def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict
     command = ""
 
     for output in output_confs:
-        command += "curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@" \
-                   + output['container_path'] + "' '" + output['url'] + "' && "
+        command += f"""curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@{output['container_path']}' '{output['url']}' && """
+
+        # command += "curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@" \
+        #            + output['container_path'] + "' '" + output['url'] + "' && "
     command = command[:-3]
 
     print(command)
