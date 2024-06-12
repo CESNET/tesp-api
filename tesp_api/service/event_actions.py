@@ -193,12 +193,12 @@ async def handle_run_task(event: Event) -> None:
 
         print("Run commands:")
         print(container_cmds)
+        # Join all commands with " && "
+        run_commands = " && ".join(container_cmds)
 
         # Unnecessary for future use, only for debuging singularity
         #os.chmod(payload['task_config']['inputs_directory'], 0o777)
-        run_command = (f"""set -xe && {stage_in_command}"""
-                       + " && ".join(container_cmds)
-                       + f""" && {stage_out_command}""")
+        run_command = (f"""set -xe && {stage_in_command} && {run_commands} && {stage_out_command}""")
         print(run_command)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
