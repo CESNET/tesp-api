@@ -78,7 +78,7 @@ class SingularityCommandBuilder:
         env_str         = " ".join(map(lambda env: f'--env {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
-        run_command = f"""singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command}"""
+        run_command = f"""singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command_str}"""
         # run_command = f'singularity exec {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {singularity_image} {command_str}'
         self.reset()
         return run_command
