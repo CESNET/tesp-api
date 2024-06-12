@@ -164,7 +164,7 @@ async def handle_run_task(event: Event) -> None:
             stage_exec.image = "docker://" + stage_exec.image
             stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
 
-        container_cmds.append(stage_in_command)
+        # container_cmds.append(stage_in_command)
 
         for i, executor in enumerate(task.executors):
             if CONTAINER_TYPE == "docker":
@@ -189,14 +189,17 @@ async def handle_run_task(event: Event) -> None:
             stage_out_command = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
                                                               output_confs, volume_confs, mount_job_dir)
 
-        container_cmds.append(stage_out_command)
+        # container_cmds.append(stage_out_command)
 
         print("Run commands:")
         print(container_cmds)
 
         # Unnecessary for future use, only for debuging singularity
         #os.chmod(payload['task_config']['inputs_directory'], 0o777)
-        run_command = f"set -xe && " + " && ".join(container_cmds)
+        run_command = (f"""set -xe && {stage_in_command}"""
+                       + " && ".join(container_cmds)
+                       + f""" && {stage_out_command}""")
+        print(run_command)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
 
@@ -216,7 +219,7 @@ async def handle_run_task(event: Event) -> None:
             {'$set': {'state': TesTaskState.EXECUTOR_ERROR}})
 
             raise TaskExecutorError()
-        
+
     except Exception as error:
         pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
