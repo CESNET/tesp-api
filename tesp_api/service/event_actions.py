@@ -216,6 +216,9 @@ async def handle_run_task(event: Event) -> None:
             {'$set': {'state': TesTaskState.EXECUTOR_ERROR}})
 
             raise TaskExecutorError()
+        
+    except Exception as error:
+        pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
     #    dispatch_event('finalize_task', payload)
     await (Promise(lambda resolve, reject: resolve(None)) \
@@ -228,9 +231,6 @@ async def handle_run_task(event: Event) -> None:
     # .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
     #     .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
     #     .then(lambda x: x)) # invokes promise returned by error handler, otherwise acts as identity function
-
-    # except Exception as error:
-    #     pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
 
 # @local_handler.register(event_name='finalize_task')
