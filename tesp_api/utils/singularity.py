@@ -171,8 +171,6 @@ def singularity_stage_out_command(executor: TesTaskExecutor, resource_conf: dict
         #            + output['container_path'] + "' '" + output['url'] + "' && "
     command = command[:-3]
 
-    print(command)
-
     command_builder._command = Just('sh -c "' + command + '"')
 
     # This is made only for Galaxy and wil likely not work with different structure of a job
