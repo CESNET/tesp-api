@@ -87,7 +87,7 @@ class DockerRunCommandBuilder:
         volumes_str     = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         docker_image    = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
-        volumes_str    += f' -v "{inputs_directory}/run_script.sh":"{workdir_str[4:-1]}/run_script.sh"'
+        volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"{workdir_str[4:-1]}/run_script_{i}.sh"'
         env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
