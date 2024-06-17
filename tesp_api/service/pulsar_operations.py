@@ -2,6 +2,7 @@ import asyncio
 from enum import Enum
 from typing import Literal
 from abc import ABC, abstractmethod
+from urllib.parse import quote
 
 from pymonad.maybe import Maybe, Nothing
 from bson.objectid import ObjectId
@@ -58,11 +59,15 @@ class PulsarRestOperations(PulsarOperations):
 
     async def _pulsar_request(self, path: str, method: Literal['GET', 'POST', 'PUT', 'DELETE'],
                               response_type: Literal['JSON', 'BYTES'], params=None, data=None):
-        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        # print("REQUEST URL",f'{self.base_url}{path}')
+        # URL encode the params
+        if params:
+            encoded_params = {key: quote(str(value), safe='') for key, value in params.items()}
+        else:
+            encoded_params = None
+
         try:
             async with self.pulsar_client.request(
-                    url=f'{self.base_url}{path}', method=method, params=params, data=data) as response:
+                    url=f'{self.base_url}{path}', method=method, params=encoded_params, data=data) as response:
                 match response_type:
                     case 'JSON': return await response.json(content_type='text/html')
                     case 'BYTES': return await response.read()
