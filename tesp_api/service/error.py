@@ -1,3 +1,5 @@
+import traceback
+
 from loguru import logger
 from bson.objectid import ObjectId
 from pymonad.maybe import Maybe, Nothing, Just
@@ -58,6 +60,7 @@ def pulsar_event_handle_error(error: Exception, task_id: ObjectId,
             logger.warning(f'One of the task [id: {task_id_str}] executors execution finished with error while '
                            f'executing event [event_name: {event_name}]. This log is here just for reference and can be'
                            f' ignored since it originates from executor. Will try to cancel respective Pulsar job.')
+            traceback.print_stack()
             return repo_update_error_task_promise(task_id, TesTaskState.EXECUTOR_ERROR, Nothing)\
                 .then(lambda ignored: pulsar_cancel_task_promise(task_id, pulsar_operations))
 
@@ -65,17 +68,20 @@ def pulsar_event_handle_error(error: Exception, task_id: ObjectId,
             logger.warning(f'Task reached unexpected state [msg: {task_not_found_error}] while executing event '
                            f'[event_name: {event_name}]. This might be a result of client canceling task. '
                            f'Execution will not continue')
+            traceback.print_stack()
             return Promise(lambda resolve, reject: resolve(None))
 
         case CustomDataLayerError():
             logger.error(f'Data layer error occurred while executing task event [event_name: {event_name}, '
                          f'task_id: {task_id_str}]. Will try to request Pulsar for job cancellation if possible.')
+            traceback.print_stack()
             return pulsar_cancel_task_promise(str(task_id), pulsar_operations)
 
         case PulsarLayerConnectionError() as pulsar_layer_connection_error:
             logger.error(f'Pulsar connection error occurred while executing task event [event_name: {event_name}, '
                          f'task_id: {task_id_str}, msg: {pulsar_layer_connection_error}]. Will try to cancel task '
                          f'and set it up with error message in the syslog attribute.')
+            traceback.print_stack()
             syslog: Maybe[str] = Just('Connection error with underlying task executor')
             return repo_update_error_task_promise(task_id, TesTaskState.SYSTEM_ERROR, syslog)
 
@@ -84,6 +90,7 @@ def pulsar_event_handle_error(error: Exception, task_id: ObjectId,
                            f'task_id: {task_id_str}, msg: {pulsar_operations_error}]. This indicates uncommon problem '
                            f'with processing/executing task therefore it will be set up with error message in the '
                            f'syslog attribute. Will try to cancel task and respective Pulsar job.')
+            traceback.print_stack()
             syslog: Maybe[str] = Just(f"Uncommon error occurred while working with underlying task executor. "
                                       f"[msg: {pulsar_operations_error.message}]")
             return pulsar_cancel_task_promise(task_id_str, pulsar_operations)\
@@ -93,6 +100,7 @@ def pulsar_event_handle_error(error: Exception, task_id: ObjectId,
             logger.error(f'Unknown error occurred while executing task event [event_name: {event_name}, '
                          f'task_id: {task_id_str}, msg: {unknown_error}]. Such error was not expected leading to '
                          f'unrecoverable state. Will try to cancel task and respective Pulsar job.')
+            traceback.print_stack()
             syslog: Maybe[str] = Just("Unexpected error occurred while processing/executing the task")
             return pulsar_cancel_task_promise(task_id_str, pulsar_operations)\
                 .then(lambda ignored: repo_update_error_task_promise(task_id, TesTaskState.SYSTEM_ERROR, syslog))

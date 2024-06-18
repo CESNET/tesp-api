@@ -143,14 +143,18 @@ class TESJobRunner(AsynchronousJobRunner):
         }
         return file_executor
 
-    def job_executor(self, remote_image: str, command_line: str, env: dict):
+    def job_executor(self, remote_image: str, command_line: str, env: dict, work_dir: str):
         """
         Returns the executor for executing jobs
         """
+        command_list = shlex.split(command_line)
+        replacements = {'../outputs/tool_stdout': 'tool_stdout',
+                        '../outputs/tool_stderr;': 'tool_stderr;'}
+        command_list = [replacements.get(item, item) for item in command_list]
         job_executor = {
-            "workdir": "/",
+            "workdir": work_dir,
             "image": remote_image,
-            "command": shlex.split(command_line),
+            "command": command_list,
             "env": env
         }
         return job_executor
@@ -166,18 +170,15 @@ class TESJobRunner(AsynchronousJobRunner):
         }
         return staging_out_executor
 
-    def base_job_script(self, mounted_dir: list, work_dir: str, output_files: list, description: str):
+    def base_job_script(self, mounted_dir: list, work_dir: str, description: str):
         """
         Retruns the basic structure for job-script
         """
         execution_script = {
             "name": "Galaxy Job Execution",
             "description": description,
-            "inputs": [
-                {
-                    "path": os.path.join(work_dir, 'createfiles.sh'),
-                    "content": self.output_file_gen_script(output_files),
-                }],
+            "inputs": [],
+            "outputs": [],
             "executors": [],
             "volumes": mounted_dir
         }
@@ -197,17 +198,6 @@ class TESJobRunner(AsynchronousJobRunner):
         script[-1] = '\n'
         return ' '.join(script)
 
-    def staging_out_command(self, script_path: str, output_files: list, api_url: str, work_dir: str):
-        """
-            Generates command for staging out of files
-        """
-        command = ["python", script_path, api_url, work_dir]
-
-        for file in output_files:
-            command.append(file)
-
-        return command
-
     def env_variables(self, job_wrapper: JobWrapper):
         """
             Get environment variables from job_wrapper
@@ -223,26 +213,41 @@ class TESJobRunner(AsynchronousJobRunner):
         env_vars["_GALAXY_JOB_HOME_DIR"] = self.container_workdir
         return env_vars
 
-    def input_url(self, api_url: str, path: str):
+    def inout_url(self, api_url: str, path: str):
         """
             Get URL for path
         """
         file_link = f"{api_url}&path={path}"
         return file_link
 
-    def input_descriptors(self, api_url: str, input_paths: list, type: str = "FILE"):
+    def in_descriptors(self, api_url: str, in_paths: list, type: str = "FILE"):
         """
-            Get Input Descriptor for Jobfile
+            Get Input / Output Descriptor for Jobfile
         """
-        input_description = []
+        in_description = []
 
-        for path in input_paths:
-            input_description.append({
-                "url": self.input_url(api_url, path),
+        for path in in_paths:
+            in_description.append({
+                "url": self.inout_url(api_url, path),
                 "path": path,
                 "type": type
             })
-        return input_description
+        return in_description
+
+    def out_descriptors(self, api_url: str, out_paths: list[dict], type: str = "FILE"):
+        """
+            Get Input / Output Descriptor for Jobfile
+        """
+        out_description = []
+
+        for path in out_paths:
+            out_description.append({
+                "url": self.inout_url(api_url, path['return_path']),
+                "path": path['tes_path'],
+                "type": type
+            })
+        return out_description
+
 
     def get_job_directory_files(self, work_dir: str):
         """
@@ -292,10 +297,9 @@ class TESJobRunner(AsynchronousJobRunner):
         tool_dir = job_wrapper.tool.tool_dir
         work_dir = job_wrapper.working_directory
         object_store_path = job_wrapper.object_store.file_path
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "util/file-staging.py")
 
         input_files = self.__get_inputs(job_wrapper)
-        output_files = self.get_output_files(job_wrapper)
+        output_files_dict = self.get_output_files(job_wrapper)
         extra_files = job_wrapper.extra_filenames
         tool_files = pulsar.client.staging.up.JobInputs(job_wrapper.command_line, extra_files).find_referenced_subfiles(tool_dir)
 
@@ -307,7 +311,7 @@ class TESJobRunner(AsynchronousJobRunner):
             include_metadata=False,
             create_tool_working_directory=False,
             include_work_dir_outputs=False,
-            remote_job_directory=job_wrapper.working_directory
+            remote_job_directory=work_dir
         )
 
         env_var = self.env_variables(job_wrapper)
@@ -322,18 +326,16 @@ class TESJobRunner(AsynchronousJobRunner):
         if (staging_out_url is None):
             staging_out_url = client_args['files_endpoint']
 
-        staging_out_command = self.staging_out_command(script_path, output_files, staging_out_url, job_wrapper.working_directory)
 
-        job_script = self.base_job_script([work_dir, object_store_path], work_dir, output_files, job_wrapper.tool.description)
+        job_script = self.base_job_script([work_dir, object_store_path], work_dir, job_wrapper.tool.description)
 
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], [script_path]))
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], tool_files))
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
-        job_script["inputs"].extend(self.input_descriptors(client_args['files_endpoint'], input_files))
+        job_script["inputs"].extend(self.in_descriptors(client_args['files_endpoint'], tool_files))
+        job_script["inputs"].extend(self.in_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
+        job_script["inputs"].extend(self.in_descriptors(client_args['files_endpoint'], input_files))
 
-        job_script["executors"].append(self.file_creation_executor(staging_out_image, work_dir))
-        job_script["executors"].append(self.job_executor(remote_image, command_line, env_var))
-        job_script["executors"].append(self.file_staging_out_executor(staging_out_image, staging_out_command))
+        job_script["outputs"].extend(self.out_descriptors(client_args['files_endpoint'], output_files_dict))
+
+        job_script["executors"].append(self.job_executor(remote_image, command_line, env_var, work_dir))
 
         return job_script
 
@@ -384,8 +386,23 @@ class TESJobRunner(AsynchronousJobRunner):
         """
         Utility for getting list of Output Files
         """
-        output_paths = job_wrapper.job_io.get_output_fnames()
-        return [str(o) for o in output_paths]
+        out_dicts = []
+        work_dir = job_wrapper.working_directory
+        existing_fpaths = []
+        for pair in self.get_work_dir_outputs(job_wrapper):
+            out_dicts.append({
+                'tes_path': work_dir + "/" + os.path.basename(pair[0]),
+                'return_path': pair[1]
+            })
+            existing_fpaths.append(pair[1])
+        for output in job_wrapper.job_io.get_output_fnames():
+            if str(output) not in existing_fpaths:
+                out_dicts.append({
+                    'tes_path': str(output),
+                    'return_path': str(output)
+                })
+
+        return out_dicts
 
     def __finish_job(self, data: dict, job_wrapper: JobWrapper):
         """
@@ -499,11 +516,11 @@ class TESJobRunner(AsynchronousJobRunner):
         if job_id is None:
             self.put(job_wrapper)
             return
-        job_state = TESJobState(job_wrapper=job_wrapper, files_dir=self.app.config.cluster_files_directory)
+        job_state = TESJobState(job_wrapper=job_wrapper, files_dir=self.app.config.job_working_directory)
         job_state.job_id = str(job_id)
         job_state.job_wrapper = job_wrapper
         job_state.job_destination = job_wrapper.job_destination
-        job_state.user_log = os.path.join(self.app.config.cluster_files_directory, 'galaxy_%s.tes.log' % galaxy_id_tag)
+        job_state.user_log = os.path.join(self.app.config.job_working_directory, 'galaxy_%s.tes.log' % galaxy_id_tag)
         job_state.register_cleanup_file_attribute('user_log')
         if job.state == model.Job.states.RUNNING:
             log.debug("(%s/%s) is still in running state, adding to the DRM queue" % (job.id, job.job_runner_external_id))

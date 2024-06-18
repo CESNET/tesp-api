@@ -1,0 +1,16 @@
+runners:
+  local_runner:
+    load: galaxy.jobs.runners.local:LocalJobRunner
+    workers: 1
+  tes_runner:
+    load: galaxy.jobs.runners.tes:TESJobRunner
+
+execution:
+  default: tesp_env
+  environments:
+    local_env:
+      runner: local_runner
+    tesp_env:
+      runner: tes_runner
+      tes_master_addr: http://<tes-server-address>:8080
+      default_docker_image: hub.cerit.io/josef_handl/tesp-test-image # prototype - for testing purpose only

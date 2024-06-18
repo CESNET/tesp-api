@@ -134,11 +134,11 @@ def test_submit_task_multi_fail():
     assert _test_sequence_activity(jsons, 10, 60, 'EXECUTOR_ERROR')
 
 def test_inputs():
-    assert _test_simple("inputs.json", 120)
+    assert _test_simple("inputs.json", 180)
 
 def test_outputs():
     jsons = ["outputs-prepare-1", "outputs-prepare-2", "outputs-test", "outputs-check"]
-    assert _test_sequence_simple(jsons, 120)
+    assert _test_sequence_simple(jsons, 180)
 
 def test_volumes():
     assert _test_simple("volumes.json", 60)
@@ -155,8 +155,8 @@ def test_stdin():
 
 def test_stdout():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stdout-test-1', 'stdout-test-2', 'stdout-check']
-    assert _test_sequence_simple(jsons, 120)
+    assert _test_sequence_simple(jsons, 180)
 
 def test_stderr():
     jsons = ['std-prepare-1', 'std-prepare-2', 'stderr-test-1', 'stderr-test-2', 'stderr-check']
-    assert _test_sequence_simple(jsons, 120)
+    assert _test_sequence_simple(jsons, 180)

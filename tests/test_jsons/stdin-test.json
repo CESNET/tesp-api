@@ -7,7 +7,7 @@
         },
         {
             "path": "/data/file_s3",
-            "url": "s3://root:123456789@galaxy:9000/test/stdin.txt",
+            "url": "s3://root:123456789@pytest-dts:9000/test/stdin.txt",
             "type": "FILE"
         }
     ],

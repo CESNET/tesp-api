@@ -7,12 +7,12 @@
         },
         {
             "path": "/data/upload_ftp",
-            "url": "ftp://anonymous:anonymous@galaxy:2121/upload.txt",
+            "url": "ftp://anonymous:anonymous@pytest-dts:2121/upload.txt",
             "type": "FILE"
         },
         {
             "path": "/data/upload_s3",
-            "url": "s3://root:123456789@galaxy:9000/test/upload.txt",
+            "url": "s3://root:123456789@pytest-dts:9000/test/upload.txt",
             "type": "FILE"
         }
     ],
