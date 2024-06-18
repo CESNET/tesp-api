@@ -35,6 +35,7 @@ class DockerRunCommandBuilder:
 
     def with_image(self, image: str):
         self._docker_image = Just(image)
+        return self
 
     def with_workdir(self, workdir: str):
         self._workdir = maybe_of(workdir)
