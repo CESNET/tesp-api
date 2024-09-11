@@ -1,3 +1,7 @@
+# NOTE 
+# Environment created by this docker-compose is intended only for local development testing 
+# and is not suitable for staging or production use.  
+
 version: '3.8'
 
 services:
@@ -107,6 +111,16 @@ services:
     volumes:
       - ./docker/ftpserver/data/:/tmp
       - ./docker/ftpserver/ftpserver.json:/app/ftpserver.json
+  
+  http_fileshare:
+    container_name: http-fileshare
+    image: codeskyblue/gohttpserver
+    ports:
+      - '8082:8000'    
+    volumes:
+      - ./docker/http_fileshare/data/:/app/public
+    command: ["--upload"]  
+  
 
 # Some cloud providers may require a lower MTU!
 networks:
