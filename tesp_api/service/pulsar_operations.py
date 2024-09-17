@@ -2,6 +2,7 @@ import asyncio
 from enum import Enum
 from typing import Literal
 from abc import ABC, abstractmethod
+from urllib.parse import quote
 
 from pymonad.maybe import Maybe, Nothing
 from bson.objectid import ObjectId
@@ -106,15 +107,15 @@ class PulsarRestOperations(PulsarOperations):
             )).catch(self._reraise_custom)
 
     def erase_job(self, job_id: ObjectId):
-        return Promise(lambda resolve, reject: resolve(None))\
-            .then(lambda nothing: self._pulsar_request(
-                path=f'/jobs/{str(job_id)}/cancel',
-                method='PUT', response_type='BYTES'
-            )).catch(lambda error: None)\
-            .then(lambda nothing: self._pulsar_request(
-                path=f'/jobs/{str(job_id)}',
-                method='DELETE', response_type='BYTES'
-            )).catch(self._reraise_custom)
+        return Promise(lambda resolve, reject: resolve(None)) \
+           .then(lambda nothing: self._pulsar_request(
+               path=f'/jobs/{str(job_id)}/cancel',
+               method='PUT', response_type='BYTES'
+           )).catch(lambda error: None)\
+           .then(lambda nothing: self._pulsar_request(
+               path=f'/jobs/{str(job_id)}',
+               method='DELETE', response_type='BYTES'
+           )).catch(self._reraise_custom)
 
 
 class PulsarAmpqOperations(PulsarOperations):
