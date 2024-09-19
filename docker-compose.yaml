@@ -35,35 +35,6 @@ services:
       placement:
         max_replicas_per_node: 1
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - ./docker/rabbitmq/rabbitmq.config:/etc/rabbitmq/rabbitmq.config:ro
-      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
-      - ./docker/rabbitmq/data/:/var/lib/rabbitmq/
-      - ./docker/rabbitmq/logs/:/var/log/rabbitmq/
-    profiles:
-      - donotstart
-
-  pulsar_amqp:
-    build:
-      context: ./docker/pulsar_amqp
-      dockerfile: Dockerfile
-      target: development
-    image: pulsar_amqp
-    container_name: pulsar-amqp
-    depends_on:
-      - rabbitmq
-    volumes:
-      - ./docker/pulsar_amqp/app.yml:/opt/pysetup/app.yml
-      - ./docker/pulsar_amqp/data/:/opt/pysetup/files/staging/
-    profiles:
-      - donotstart
-
   pulsar_rest:
     build:
       context: ./docker/pulsar_rest
@@ -76,37 +47,11 @@ services:
       - "8913"
     volumes:
       - ./docker/pulsar_rest/app.yml:/opt/pysetup/app.yml
-# DIND
+# DIND - problem with resource limitation, missing cgroups inside
 #      - ./docker/pulsar_rest/data/:/opt/pysetup/files/staging/
 # DOOD
       - /opt/pysetup/files/staging/:/opt/pysetup/files/staging/
       - /var/run/docker.sock:/var/run/docker.sock
-
-  minio:
-    container_name: minio
-    image: minio/minio
-    expose:
-      - '9000'
-    ports:
-      - '40949:40949'
-    environment:
-      MINIO_ROOT_USER: 'admin'
-      MINIO_ROOT_PASSWORD: '!Password123'
-    volumes:
-      - ./docker/minio/data/:/data
-    command:
-      server /data --console-address ":40949"
-
-  ftpserver:
-    container_name: tesp-ftp-server
-    image: fclairamb/ftpserver
-    ports:
-      - '2121-2130:2121-2130'
-    depends_on:
-      - minio
-    volumes:
-      - ./docker/ftpserver/data/:/tmp
-      - ./docker/ftpserver/ftpserver.json:/app/ftpserver.json
 
 # Some cloud providers may require a lower MTU!
 networks:

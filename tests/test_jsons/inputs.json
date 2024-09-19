@@ -2,31 +2,11 @@
     "inputs": [
         {
             "path":"/data/file_direct",
-            "content":"ls -la /data/file_direct && ls -la /data/file_ftp && ls -la /data/file_ftp_2 && ls -la /data/file_s3 && ls -la /data/file_http && ls -la /data/file_http_2\n",
+            "content":"ls -la /data/file_direct && ls -la /data/file_http\n",
             "type":"FILE"
         },
         {
-            "path": "/data/file_ftp",
-            "url": "ftp://anonymous:anonymous@pytest-dts:2121/file.bin",
-            "type": "FILE"
-        },
-        {
-            "path": "/data/file_ftp_2",
-            "url": "ftp://anonymous:anonymous@speedtest.tele2.net/5MB.zip",
-            "type": "FILE"
-        },
-        {
-            "path": "/data/file_s3",
-            "url": "s3://root:123456789@pytest-dts:9000/test/file.bin",
-            "type": "FILE"
-        },
-        {
             "path": "/data/file_http",
-            "url": "http://pytest-dts:5000/download/file.txt",
-            "type": "FILE"
-        },
-        {
-            "path": "/data/file_http_2",
             "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
             "type": "FILE"
         }

@@ -23,7 +23,7 @@ from tesp_api.api.endpoints.endpoint_utils import \
     descriptions, \
     view_query_params, \
     get_view, \
-    list_query_params, resource_not_found_response
+    list_query_params, resource_not_found_response, parse_verify_token
 
 router = APIRouter()
 
@@ -32,19 +32,26 @@ router = APIRouter()
              responses={200: {"description": "OK"}},
              response_model=TesCreateTaskResponseModel,
              description=descriptions["tasks-create"])
-async def create_task(tes_task: TesTask = Body(...)) -> Response:
-    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print("TES TASK JSON")
-    print(tes_task.json())
+async def create_task(
+        token_subject: str = Depends(parse_verify_token),
+        tes_task: TesTask = Body(...)
+        ) -> Response:
     task_to_create = RegisteredTesTask(
         **tes_task.dict(),
         state=TesTaskState.QUEUED,
         logs=[TesTaskLog(logs=[], outputs=[], system_logs=[])],
-        creation_time=datetime.datetime.now(datetime.timezone.utc).isoformat())
+        creation_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        author=token_subject)
     return await task_repository.create_task(task_to_create)\
         .map(lambda task_id: identity_with_side_effect(
-            task_id, lambda _task_id: dispatch_event("queued_task", payload={"task_id": _task_id}))
-        ).map(lambda task_id: response_from_model(TesCreateTaskResponseModel(id=str(task_id))))\
+            task_id, lambda _task_id: dispatch_event(
+                "queued_task",
+                payload={
+                    "task_id": _task_id,
+                    "author": token_subject
+                }
+            )
+        )).map(lambda task_id: response_from_model(TesCreateTaskResponseModel(id=str(task_id))))\
         .catch(api_handle_error)
 
 
@@ -54,9 +61,15 @@ async def create_task(tes_task: TesTask = Body(...)) -> Response:
                 404: {"description": "Not found"}},
             response_model=RegisteredTesTaskSchema,
             description=descriptions["tasks-get"])
-async def get_task(id: str, query_params: dict = Depends(view_query_params)) -> Response:
-    return await Promise(lambda resolve, reject: resolve(id))\
-        .then(lambda _id: task_repository.get_task({'_id': ObjectId(_id)}))\
+async def get_task(
+        id: str,
+        token_subject: str = Depends(parse_verify_token),
+        query_params: dict = Depends(view_query_params)
+        ) -> Response:
+    return await Promise(lambda resolve, reject: resolve((
+            maybe_of(token_subject),
+            {'_id': ObjectId(id)}
+        ))).then(lambda get_tasks_args: task_repository.get_task(*get_tasks_args))\
         .map(lambda found_task: found_task.maybe(
             resource_not_found_response(Just(f"Task[{id}] not found")),
             lambda _task: response_from_model(_task, get_view(query_params['view']))
@@ -67,8 +80,12 @@ async def get_task(id: str, query_params: dict = Depends(view_query_params)) -> 
             responses={200: {"description": "Ok"}},
             response_model=TesGetAllTasksResponseSchema,
             description=descriptions["tasks-get-all"])
-async def get_tasks(query_params: dict = Depends(list_query_params)) -> Response:
+async def get_tasks(
+        token_subject: str = Depends(parse_verify_token),
+        query_params: dict = Depends(list_query_params)
+        ) -> Response:
     return await Promise(lambda resolve, reject: resolve((
+            maybe_of(token_subject),
             maybe_of(query_params['page_size']),
             maybe_of(query_params['page_token']).map(lambda _p_token: ObjectId(_p_token)),
             maybe_of(query_params['name_prefix']).map(lambda _name_prefix: {'name': {'$regex': f"^{_name_prefix}"}}))))\
@@ -83,9 +100,14 @@ async def get_tasks(query_params: dict = Depends(list_query_params)) -> Response
 @router.post("/tasks/{id}:cancel",
              responses={200: {"description": "Ok"}},
              description=descriptions["tasks-delete"],)
-async def cancel_task(id: str) -> Response:
-    return await Promise(lambda resolve, reject: resolve(id))\
-        .then(lambda task_id: task_repository.cancel_task(ObjectId(task_id)))\
+async def cancel_task(
+        id: str,
+        token_subject: str = Depends(parse_verify_token),
+        ) -> Response:
+    return await Promise(lambda resolve, reject: resolve((
+            maybe_of(token_subject),
+            ObjectId(id)
+    ))).then(lambda get_tasks_args: task_repository.cancel_task(*get_tasks_args))\
         .map(lambda task_id: Response(status_code=200, media_type="application/json"))\
         .catch(api_handle_error)
 

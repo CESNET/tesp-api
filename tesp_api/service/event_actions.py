@@ -105,9 +105,10 @@ async def handle_initializing_task(event: Event) -> None:
         return resource_conf, volume_confs, input_confs, output_confs
 
     await Promise(lambda resolve, reject: resolve(None))\
-        .then(lambda nothing: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.QUEUED},
-            {'$set': {'state': TesTaskState.INITIALIZING}}
+        .then(lambda nothing: task_repository.update_task_state(
+            task_id,
+            TesTaskState.QUEUED,
+            TesTaskState.INITIALIZING
         )).map(lambda updated_task: get_else_throw(
             updated_task, TaskNotFoundError(task_id, Just(TesTaskState.QUEUED))
         )).then(lambda updated_task: setup_data(
@@ -130,6 +131,7 @@ async def handle_initializing_task(event: Event) -> None:
 async def handle_run_task(event: Event) -> None:
     event_name, payload = event
     task_id: ObjectId = payload['task_id']
+    author: str = payload['author']
     resource_conf: dict = payload['resource_conf']
     volume_confs: List[Path] = payload['volume_confs']
     input_confs: List[dict] = payload['input_confs']
@@ -137,16 +139,20 @@ async def handle_run_task(event: Event) -> None:
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
     # init task
-    task_monad = await task_repository.update_task(
-        {'_id': task_id, "state": TesTaskState.INITIALIZING},
-        {'$set': {'state': TesTaskState.RUNNING}}
+    task_monad = await task_repository.update_task_state(
+        task_id,
+        TesTaskState.INITIALIZING,
+        TesTaskState.RUNNING
     )
     try:
         task = get_else_throw(task_monad, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING)))
 
         await update_last_task_log_time(
-            task_id, TesTaskState.RUNNING,
-            start_time=Just(datetime.datetime.now(datetime.timezone.utc)))
+            task_id,
+            author,
+            TesTaskState.RUNNING,
+            start_time=Just(datetime.datetime.now(datetime.timezone.utc))
+        )
 
         # prepare docker commands
         container_cmds = list()
@@ -204,12 +210,21 @@ async def handle_run_task(event: Event) -> None:
 
         command_end_time = datetime.datetime.now(datetime.timezone.utc)
         await append_task_executor_logs(
-            task_id, TesTaskState.RUNNING, command_start_time, command_end_time, command_status['stdout'],
-            command_status['stderr'], command_status['returncode'])
+            task_id,
+            author,
+            TesTaskState.RUNNING,
+            command_start_time,
+            command_end_time,
+            command_status['stdout'],
+            command_status['stderr'],
+            command_status['returncode']
+        )
         if command_status['returncode'] != 0:
-            task = await task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.RUNNING},
-            {'$set': {'state': TesTaskState.EXECUTOR_ERROR}})
+            task = await task_repository.update_task_state(
+                task_id,
+                TesTaskState.RUNNING,
+                TesTaskState.EXECUTOR_ERROR
+            )
 
             raise TaskExecutorError()
 
@@ -218,9 +233,11 @@ async def handle_run_task(event: Event) -> None:
 
     #    dispatch_event('finalize_task', payload)
     await Promise(lambda resolve, reject: resolve(None)) \
-        .then(lambda ignored: task_repository.update_task(
-            {'_id': task_id, "state": TesTaskState.RUNNING},
-            {'$set': {'state': TesTaskState.COMPLETE}})) \
+        .then(lambda ignored: task_repository.update_task_state(
+            task_id,
+            TesTaskState.RUNNING,
+            TesTaskState.COMPLETE
+        )) \
         .map(lambda task: get_else_throw(
             task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
             )) \

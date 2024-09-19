@@ -228,6 +228,7 @@ class RegisteredTesTask(TesTask):
     creation_time: datetime = Field(None, example='2020-10-02T10:00:00-05:00',
                                     description='Date + time the task was created, in RFC 3339 format. This is set by'
                                                 ' the system, not the client.')
+    author: str = Field(None, description='Subject from OAuth2 token.')
 
     class Config:
         orm_mode = True

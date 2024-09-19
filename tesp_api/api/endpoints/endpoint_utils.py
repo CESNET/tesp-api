@@ -1,14 +1,18 @@
 import time
 from typing import Optional
 
-from fastapi import status
+from fastapi import status, HTTPException
 from fastapi.responses import Response
+from fastapi.security import OAuth2PasswordBearer
 from pydantic.main import BaseModel
 from pymonad.maybe import Nothing, Maybe
 from fastapi.params import Query, Depends
 
+from tesp_api.config.properties import properties
 from tesp_api.repository.model.task import TesTaskView
 from tesp_api.api.model.response_models import ErrorResponseModel
+from tesp_api.service.error import OAuth2TokenError
+from tesp_api.utils.token_validator import verify_token
 
 descriptions = {
     "tasks-create":  "Create a new task. The user provides a Task document, which the "
@@ -44,6 +48,8 @@ qry_var_page_size = Query(256, description=query_descriptions['page_size'])
 qry_var_page_token = Query(None, description=query_descriptions['page_token'])
 qry_var_view = Query(TesTaskView.MINIMAL, description=query_descriptions['view'])
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+
 
 async def view_query_params(view: Optional[TesTaskView] = qry_var_view):
     return {"view": view}
@@ -59,6 +65,17 @@ async def list_query_params(name_prefix: Optional[str] = qry_var_name_prefix,
         "page_token": page_token,
         **view
     }
+
+
+def parse_verify_token(token = Depends(oauth2_scheme)):
+    if not properties.oauth.enable:
+        return None
+
+    try:
+        subject = verify_token(token)
+        return subject
+    except OAuth2TokenError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 
 def get_view(view: Optional[TesTaskView]) -> dict:

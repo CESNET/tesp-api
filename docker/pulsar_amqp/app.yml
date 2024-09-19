@@ -1,4 +1,0 @@
----
-conda_auto_init: false
-conda_auto_install: false
-message_queue_url: amqp://user1:pass1@rabbitmq:5672//pulsar_vhost
