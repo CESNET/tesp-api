@@ -139,7 +139,6 @@ which ports to be used etc. Following services are currently defined by [./docke
 - **tesp-api** - This project itself. Depends on mongodb
 - **tesp-db**  - [MongoDB](https://www.mongodb.com/) instance for persistence layer
 - **pulsar_rest** - `Pulsar` configured to use Rest API with access to a docker instance thanks to [DIND](https://hub.docker.com/_/docker).
-- **rabbitmq** - currently disabled, will be used in the future development
 - **pulsar_amqp** - currently disabled, will be used in the future development
 - **ftpserver** - online storage for `TES` tasks input/output content
 - **minio** - currently acting only as a storage backend for the `ftpserver` with simple web interface to access data.  
