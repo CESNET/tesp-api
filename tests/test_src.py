@@ -8,6 +8,8 @@ sys.path.append('/app')
 
 from tesp_api import __version__
 
+from tesp_api.utils.commons import Commons
+
 base_url = "http://localhost:8080"
 
 def _gnv(data, key):
@@ -108,7 +110,7 @@ def test_service_info():
     assert _gnv(data, "name")
     assert _gnv(data, "type.group") == "org.ga4gh"
     assert _gnv(data, "type.artifact") == "tes"
-    assert _gnv(data, "type.version") == "1.0.0"
+    assert _gnv(data, "type.version") == Commons.get_service_version()
     assert _gnv(data, "organization.name")
     assert _gnv(data, "organization.url")
     assert _gnv(data, "version")
