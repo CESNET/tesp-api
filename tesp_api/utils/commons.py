@@ -8,10 +8,6 @@ class Commons:
     log = logging.getLogger(__name__)
 
     @classmethod
-    def get_service_version(cls):
-        print(1)
-
-    @classmethod
     def execute_script(cls, script_path, *script_parameters):
         script_and_parameters = [ script_path ] + list(script_parameters)
         cls.log.debug(f"calling script and parameters { script_and_parameters }")
