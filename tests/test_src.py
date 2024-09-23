@@ -40,7 +40,7 @@ def _post_request(url, payload={}):
     return resp
 
 def _open_json(filename):
-    with open(f"tests/test_jsons/{filename}", 'r') as f:
+    with open(f"{script_directory}/test_jsons/{filename}", 'r') as f:
         data = f.read()
     return json.loads(data)
 
