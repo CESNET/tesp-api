@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "passive_transfer_port_range": {
+    "start": 2121,
+    "end": 2130
+  },
+  "accesses": [
+    {
+      "user": "anonymous",
+      "pass": "*",
+      "fs": "s3",
+      "params": {
+        "endpoint": "http://service-s3:9000",
+        "region": "us-east-1",
+        "bucket": "tests-data",
+        "access_key_id": "root",
+        "secret_access_key": "123456789",
+        "disable_ssl": "true",
+        "path_style": "true"
+      }
+    }
+  ]
+}

@@ -22,6 +22,8 @@ docker compose up -d --build
 ```
 Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
 
+The `docker-compose.yaml` spins also collection of [Data Transfer Services](docker/dts/README.md) which can be used for testing. 
+
 ### Usage
 If the TESP is running, you can try to submit a task. One way is to use cURL. Although the project is still in development, the TESP should be compatible with TES so you can try TES clients such as Snakemake or Nextflow. The example below shows how to submit task using cURL.
 
