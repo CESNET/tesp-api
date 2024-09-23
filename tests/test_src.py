@@ -13,6 +13,7 @@ base_url = "http://localhost:8080"
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 
+
 def _gnv(data, key):
     """Get a nested value from a dictionary using dot notation."""
     keys = key.split(".")
