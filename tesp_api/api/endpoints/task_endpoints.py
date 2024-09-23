@@ -25,6 +25,9 @@ from tesp_api.api.endpoints.endpoint_utils import \
     get_view, \
     list_query_params, resource_not_found_response, parse_verify_token
 
+from tesp_api.utils.commons import Commons
+
+
 router = APIRouter()
 
 
@@ -135,6 +138,6 @@ async def get_service_info() -> TesServiceInfo:
         createdAt="2021-10-26T00:00:00Z",
         updatedAt="2021-10-26T00:00:00Z",
         environment="dev",
-        version="0.1.0",
+        version=Commons.get_service_version(),
         storage=["https://www.fi.muni.cz/"]
     )
