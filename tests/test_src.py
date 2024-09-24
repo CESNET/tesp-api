@@ -144,7 +144,7 @@ def test_inputs():
 def test_outputs():
     # Tests S3 and FTP upload and download.
     jsons = ["outputs-prepare", "outputs-prepare-check", "outputs-test", "outputs-test-check"]
-    assert _test_sequence_simple(jsons, 300)
+    assert _test_sequence_simple(jsons, 180)
 
 def test_volumes():
     assert _test_simple("volumes.json", 60)
