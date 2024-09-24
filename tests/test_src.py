@@ -6,8 +6,6 @@ import json
 import sys
 sys.path.append('/app')
 
-from tesp_api import __version__
-
 from tesp_api.utils.commons import Commons
 
 base_url = "http://localhost:8080"
@@ -99,21 +97,20 @@ def _test_sequence_activity(jsons, timeout_running, timeout_complete, state = 'C
 
     return True
 
-
-def test_version():
-    assert __version__ == '0.0.1'
-
 def test_service_info():
-    data = _get_request("/v1/service-info")
+    data = _get_request("/v1/service-info")    
 
+    # see https://github.com/ga4gh/task-execution-schemas/releases
+    TES_API_VERSION = '1.0.0'
+    
     assert _gnv(data, "id")
     assert _gnv(data, "name")
     assert _gnv(data, "type.group") == "org.ga4gh"
     assert _gnv(data, "type.artifact") == "tes"
-    assert _gnv(data, "type.version") == Commons.get_service_version()
+    assert _gnv(data, "type.version") == TES_API_VERSION
     assert _gnv(data, "organization.name")
     assert _gnv(data, "organization.url")
-    assert _gnv(data, "version")
+    assert _gnv(data, "version") == Commons.get_service_version()
 
 def test_empty_task_list():
     data = _get_request("/v1/tasks")
