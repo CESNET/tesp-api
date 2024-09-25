@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+
+  service-s3:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./s3/data:/data
+    environment:
+      MINIO_ROOT_USER: root
+      MINIO_ROOT_PASSWORD: 123456789
+    command: server --console-address ":9001" /data
+
+  service-ftp:
+    build:
+      context: ./ftp/
+    image: ftp
+    ports:
+      - '2121-2130:2121-2130'
+    depends_on:
+      - service-s3
+
+  service-http:
+    build:
+      context: ./http/
+    image: http
+    ports:
+      - "5000:5000"  # Map Flask server's port to host
+    volumes:
+      - ./http/data:/data  # Mount the uploads folder to the container to persist uploaded files
+  #    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  tests-clients:
+    build:
+      context: ./clients/
+    image: clients
+    depends_on:
+      - tests-clients-init      
+
+  tests-clients-init:
+    build:
+      context: ./clients/
+      dockerfile: Dockerfile.tests-init    
+    depends_on:
+      - service-s3
+      - service-ftp
+      - service-http
+
+
+# Some cloud providers may require a lower MTU!
+#networks:
+#  default:
+#    driver: bridge
+#    driver_opts:
+#      com.docker.network.driver.mtu: 1442
