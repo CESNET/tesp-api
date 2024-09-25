@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
 
-  static-code-analysis:
+  deployment-test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -14,7 +14,6 @@ jobs:
       - name: check out repository
         uses: actions/checkout@v4
 
-      # Docker Compose up command
-      - name: Run Docker Compose
+      - name: run docker compose
         run: |
           docker compose up -d --build
