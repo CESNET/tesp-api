@@ -1,0 +1,19 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+
+  deployment-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+
+      - name: check out repository
+        uses: actions/checkout@v4
+
+      - name: run docker compose
+        run: |
+          docker compose up -d --build
