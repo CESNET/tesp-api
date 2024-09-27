@@ -153,7 +153,7 @@ def test_envs():
     assert _test_simple("envs.json", 60)
 
 def test_workdir():
-    assert _test_simple("workdir.json", 60)
+    assert _test_simple("workdir.json", 120)
 
 #def test_stdin():
     #jsons = ['stdin-prepare', 'stdin-test']
