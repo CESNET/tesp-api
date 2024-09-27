@@ -18,6 +18,9 @@ jobs:
         run: |
           docker compose up -d --build
 
+      - name: instal pytest
+        run: pip install pytest
+
       - name: pytest run smoke tests
         run: |
           pytest tests/smoke_test.py
