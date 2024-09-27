@@ -116,13 +116,6 @@ def test_service_info():
     assert _gnv(data, "organization.url")
     assert _gnv(data, "version") == Commons.get_service_version()
 
-def test_empty_task_list():
-    data = _get_request("/v1/tasks")
-
-    tasks = _gnv(data, "tasks")
-    assert tasks
-    assert isinstance(tasks, list)
-
 def test_submit_task_complete():
     assert _test_activity("state_true.json", 10, 60, 'COMPLETE')
 
@@ -135,6 +128,13 @@ def test_submit_task_multi_complete():
 def test_submit_task_multi_fail():
     jsons = ["multi_false_1", "multi_false_2", "multi_false_3"]
     assert _test_sequence_activity(jsons, 10, 60, 'EXECUTOR_ERROR')
+
+def test_get_task_list():
+    data = _get_request("/v1/tasks")
+
+    tasks = _gnv(data, "tasks")
+    assert tasks
+    assert isinstance(tasks, list)
 
 def test_inputs():
     # Tests only HTTP download for now, and direct input.
