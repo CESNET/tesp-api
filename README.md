@@ -22,6 +22,8 @@ docker compose up -d --build
 ```
 Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
 
+The `docker-compose.yaml` spins also collection of [Data Transfer Services](docker/dts/README.md) which can be used for testing. 
+
 ### Usage
 If the TESP is running, you can try to submit a task. One way is to use cURL. Although the project is still in development, the TESP should be compatible with TES so you can try TES clients such as Snakemake or Nextflow. The example below shows how to submit task using cURL.
 
@@ -139,7 +141,6 @@ which ports to be used etc. Following services are currently defined by [./docke
 - **tesp-api** - This project itself. Depends on mongodb
 - **tesp-db**  - [MongoDB](https://www.mongodb.com/) instance for persistence layer
 - **pulsar_rest** - `Pulsar` configured to use Rest API with access to a docker instance thanks to [DIND](https://hub.docker.com/_/docker).
-- **rabbitmq** - currently disabled, will be used in the future development
 - **pulsar_amqp** - currently disabled, will be used in the future development
 - **ftpserver** - online storage for `TES` tasks input/output content
 - **minio** - currently acting only as a storage backend for the `ftpserver` with simple web interface to access data.  
