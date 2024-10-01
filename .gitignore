@@ -4,6 +4,9 @@
 # Custom ignored files
 *.uuid
 
+# Ignore MinIO system files
+docker/dts/s3/data/.minio.sys/
+
 # Docker
 docker/*/data/
 docker/*/logs/
