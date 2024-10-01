@@ -1,6 +1,9 @@
 # IDE's
 .idea
 
+# Custom ignored files
+*.uuid
+
 # Docker
 docker/*/data/
 docker/*/logs/
