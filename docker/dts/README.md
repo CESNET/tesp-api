@@ -72,7 +72,7 @@ SAMPLE_DATE=/tmp/sample.jpg
 curl -o /tmp/sample.jpg https://github.blog/wp-content/uploads/2024/07/github-logo.png
 ```
 
-#### Access vi FTP
+#### Access via FTP
 
 Upload and download data
 ```
@@ -80,12 +80,22 @@ lftp -p 2121 -e "put /tmp/sample.jpg; get $(basename $SAMPLE_DATE) -o /tmp/sampl
 ```
 
 #### Access via HTTP
-Upload data 
+
+##### Upload
+
+POST + `http://localhost:5000/upload` while payload is sent as 'file' HTTP body parameter.
 ```
-curl -v -T sample.jpg ftp://service-ftp:2121/
+curl -F "file=@/tmp/qwerty" http://localhost:5000/upload/foo/bar
 ```
 
-Download data 
+
+##### Download
+GET  + `http://localhost:5000/download` while payload is sent as 'file' HTTP body parameter.
 ```
-curl -o sample_copy.jpg ftp://service-ftp:2121/sample.jpg
+wget  http://localhost:5000/download/foo/bar/qwerty
 ```
+
+
+
+##### List of all data
+GET  + `http://localhost:5000/list` 

@@ -1,22 +1,16 @@
-FROM ubuntu:22.04
+FROM ubuntu:jammy
+# target-image-suffix: tools/http-storage:0.1
 
-ARG NAME=nginx-http-test
+COPY requirements.txt ./
+COPY main_flask.py logger_config.py ./
+COPY docker-entrypoint.sh /
 
 RUN apt update && apt install -y --no-install-recommends \
 	python3 \
-	python3-pip
+	python3-pip \
+	&& pip3 install -r requirements.txt \
+	&& chmod +x /docker-entrypoint.sh
 
-RUN mkdir /opt/${NAME}
-WORKDIR /opt/${NAME}
-
-COPY requirements.txt ./
-
-RUN pip3 install -r requirements.txt
-
-COPY main_flask.py ./
-COPY main_fastapi.py ./
-
-COPY docker-entrypoint.sh /
-RUN chmod +x /docker-entrypoint.sh
+EXPOSE 5000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

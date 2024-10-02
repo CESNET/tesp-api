@@ -79,10 +79,10 @@ services:
       context: ./docker/dts/http/
     image: http
     ports:
-      - "5000:5000"  # Map Flask server's port to host
+      - "5000:5000"
     volumes:
-      - ./docker/dts/http/data:/data  # Mount the uploads folder to the container to persist uploaded files
-  #    command: uvicorn main:app --host 0.0.0.0 --port 8000
+      - ./docker/dts/http/data:/data
+  
 
   tests-clients:
     build:
