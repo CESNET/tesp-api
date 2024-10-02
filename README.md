@@ -22,6 +22,21 @@ docker compose up -d --build
 ```
 Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
 
+You might encounter a timeout error in container runtime which can be solved by correct `mtu` configuration either in the `docker-compose.yaml`:
+```
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1442
+```
+ or directly in your `/etc/docker/daemon.json`:
+```
+{
+	"mtu": 1442
+}
+```
+
 The `docker-compose.yaml` spins also collection of [Data Transfer Services](docker/dts/README.md) which can be used for testing. 
 
 ### Usage
