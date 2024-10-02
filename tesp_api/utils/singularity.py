@@ -107,7 +107,7 @@ class SingularityCommandBuilder:
 
         run_command = (f'singularity exec {resources_str} {workdir_str} {env_str} '
                        f'{volumes_str} {bind_mounts_str} {singularity_image} '
-                       f'/bin/bash /tmp/{self._job_id}run_script_{i}.sh')
+                       f'/bin/bash /tmp/{self._job_id}/run_script_{i}.sh')
         self.reset()
         return run_command, script_content
 
