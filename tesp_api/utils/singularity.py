@@ -10,6 +10,7 @@ from tesp_api.utils.functional import get_else_throw, maybe_of
 class SingularityCommandBuilder:
 
     def __init__(self) -> None:
+        self._job_id: str = ""
         self._resource_cpu: Maybe[str] = Nothing
         self._resource_mem: Maybe[str] = Nothing
         self._singularity_image: Maybe[str] = Nothing
@@ -18,6 +19,10 @@ class SingularityCommandBuilder:
         self._volumes: Dict[str, str] = {}
         self._bind_mounts: Dict[str, str] = {}
         self._command: Maybe[str] = Nothing
+
+    def with_job_id(self, job_id: str):
+        self._job_id = job_id
+        return self
 
     def with_resource(self, resources: dict):
         if not resources: return self
@@ -90,7 +95,7 @@ class SingularityCommandBuilder:
         volumes_str     = " ".join(map(lambda v_paths: f'-B \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         singularity_image    = get_else_throw(self._singularity_image, ValueError('Singularity image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"--pwd \"{str(workdir)}\"")
-        volumes_str     += f' -B "{inputs_directory}/run_script_{i}.sh":"{workdir_str[7:-1]}/run_script_{i}.sh"'
+        volumes_str     += f' -B "{inputs_directory}/run_script_{i}.sh":"/tmp/{self._job_id}/run_script_{i}.sh"'
         env_str         = " ".join(map(lambda env: f'--env {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
@@ -102,14 +107,15 @@ class SingularityCommandBuilder:
 
         run_command = (f'singularity exec {resources_str} {workdir_str} {env_str} '
                        f'{volumes_str} {bind_mounts_str} {singularity_image} '
-                       f'/bin/bash run_script_{i}.sh')
+                       f'/bin/bash /tmp/{self._job_id}run_script_{i}.sh')
         self.reset()
         return run_command, script_content
 
-def singularity_run_command(executor: TesTaskExecutor, resource_conf: dict,
+def singularity_run_command(executor: TesTaskExecutor, job_id: str, resource_conf: dict,
                             volume_confs: List[dict], input_confs: List[dict],
                             output_confs: List[dict], inputs_directory: str, job_directory: str, i: int) -> Tuple[str, str]:
     command_builder = SingularityCommandBuilder() \
+        .with_job_id(job_id) \
         .with_image(executor.image) \
         .with_command(
         list(map(lambda x: str(x), executor.command)),

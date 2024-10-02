@@ -87,14 +87,13 @@ class DockerRunCommandBuilder:
         return run_command
 
     def get_run_command_script(self, inputs_directory: str, i: int) -> Tuple[str, str]:
-        job_id        = self._job_id
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
                          f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
         bind_mounts_str = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
         volumes_str     = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         docker_image    = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
-        volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"/tmp/{job_id}/run_script_{i}.sh"'
+        volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"/tmp/{self._job_id}/run_script_{i}.sh"'
         env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
@@ -106,7 +105,7 @@ class DockerRunCommandBuilder:
 
         run_command = (f'docker run {resources_str} {workdir_str} {env_str} '
                         f'{volumes_str} {bind_mounts_str} {docker_image} '
-                        f'/bin/bash /tmp/{job_id}/run_script_{i}.sh')
+                        f'/bin/bash /tmp/{self._job_id}/run_script_{i}.sh')
         self.reset()
         return run_command, script_content
 

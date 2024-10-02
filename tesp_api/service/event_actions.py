@@ -178,7 +178,7 @@ async def handle_run_task(event: Event) -> None:
                                                                  input_confs, output_confs, stage_in_mount, i)
             elif CONTAINER_TYPE == "singularity":
                 mount_job_dir = payload['task_config']['job_directory']
-                run_command, script_content = singularity_run_command(executor, resource_conf, volume_confs,
+                run_command, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount, mount_job_dir, i)
 
             await pulsar_operations.upload(
