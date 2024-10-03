@@ -10,6 +10,7 @@ from tesp_api.utils.functional import get_else_throw, maybe_of
 class DockerRunCommandBuilder:
 
     def __init__(self) -> None:
+        self._job_id: str = ""
         self._resource_cpu: Maybe[str] = Nothing
         self._resource_mem: Maybe[str] = Nothing
         self._docker_image: Maybe[str] = Nothing
@@ -18,6 +19,10 @@ class DockerRunCommandBuilder:
         self._volumes: Dict[str, str] = {}
         self._bind_mounts: Dict[str, str] = {}
         self._command: Maybe[str] = Nothing
+
+    def with_job_id(self, job_id: str):
+        self._job_id = job_id
+        return self
 
     def with_resource(self, resources: dict):
         if not resources: return self
@@ -88,7 +93,7 @@ class DockerRunCommandBuilder:
         volumes_str     = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
         docker_image    = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
         workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
-        volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"{workdir_str[4:-1]}/run_script_{i}.sh"'
+        volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"/tmp/{self._job_id}/run_script_{i}.sh"'
         env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
@@ -100,13 +105,14 @@ class DockerRunCommandBuilder:
 
         run_command = (f'docker run {resources_str} {workdir_str} {env_str} '
                         f'{volumes_str} {bind_mounts_str} {docker_image} '
-                        f'/bin/bash run_script_{i}.sh')
+                        f'/bin/bash /tmp/{self._job_id}/run_script_{i}.sh')
         self.reset()
         return run_command, script_content
 
-def docker_run_command(executor: TesTaskExecutor, resource_conf: dict, volume_confs: List[dict],
+def docker_run_command(executor: TesTaskExecutor, job_id: str, resource_conf: dict, volume_confs: List[dict],
                        input_confs: List[dict], output_confs: List[dict], inputs_directory: str, i: int) -> Tuple[str, str]:
     command_builder = DockerRunCommandBuilder()\
+        .with_job_id(job_id) \
         .with_image(executor.image) \
         .with_command(
             list(map(lambda x: str(x), executor.command)),
