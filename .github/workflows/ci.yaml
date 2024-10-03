@@ -14,6 +14,12 @@ jobs:
       - name: check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.HARBOR_CLI_PASSWORD }}" | docker login cerit.io -u "${{ secrets.HARBOR_CLI_USERNAME }}" --password-stdin
+
       - name: run docker compose
         run: |
           docker compose up -d --build
@@ -24,4 +30,17 @@ jobs:
       - name: pytest run smoke tests
         run: |
           pytest tests/smoke_tests.py
-        
+
+      - name: Set version from CHANGELOG
+        id: version
+        run: |
+          version=$(bash tesp-api/ci/version.sh CHANGELOG.md)
+          echo "::set-output name=version::$version"
+
+      - name: Tag Docker image
+        run: |
+          docker tag tesp-api:latest cerit.io/tesp-api/tesp-api:${{ steps.version.outputs.version }}
+
+      - name: Push Docker image
+        run: |
+          docker push cerit.io/tesp-api/tesp-api:${{ steps.version.outputs.version }} 
