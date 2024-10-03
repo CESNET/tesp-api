@@ -34,7 +34,7 @@ jobs:
       - name: Set version from CHANGELOG
         id: version
         run: |
-          version=$(bash tesp-api/ci/version.sh CHANGELOG.md)
+          version=$(bash ci/version.sh CHANGELOG.md)
           echo "::set-output name=version::$version"
 
       - name: Tag Docker image
