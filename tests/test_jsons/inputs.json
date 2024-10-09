@@ -7,7 +7,7 @@
         },
         {
             "path": "/data/file_http",
-            "url": "http://localhost:5000/download/tesp-api/tests/test-data/test.txt",
+            "url": "http://service-http:5000/download/tesp-api/tests/test-data/test.txt",
             "type": "FILE"
         }
     ],
