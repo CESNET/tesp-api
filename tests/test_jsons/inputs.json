@@ -7,7 +7,7 @@
         },
         {
             "path": "/data/file_http",
-            "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+            "url": "http://localhost:5000/download/tesp-api/tests/test-data/test.txt",
             "type": "FILE"
         }
     ],
