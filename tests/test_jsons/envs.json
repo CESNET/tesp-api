@@ -1,22 +1,27 @@
 {
+    "outputs": [
+
+    {
+        "path": "/tmp/env_test_1",
+        "url": "http://10.10.11.12:5000/upload",
+        "type": "FILE"
+    },
+    {
+	"path": "/tmp/env_test_2",
+        "url": "http://10.10.11.12:5000/upload",
+        "type": "FILE"
+    }
+
+],	
     "executors":[
         {
             "image":"ubuntu",
             "command":[
-                "touch", "$TEST_FILE", "&&", "cat", "/tmp/test_file_42"
+                "echo", "$TEST_FILE", ">", "/tmp/env_test_1", "&&", "echo", "$TEST_FILE_2", ">", "/tmp/env_test_2"
             ],
             "env": {
-                "TEST_FILE": "/tmp/test_file_42"
-            }
-        },
-        {
-            "image":"ubuntu",
-            "command":[
-                "touch", "$TEST_FILE", "&&", "touch", "$TEST_FILE_2", "&&", "cat", "/tmp/test_file_7", "&&", "cat", "/tmp/test_file_2"
-            ],
-            "env": {
-                "TEST_FILE": "/tmp/test_file_7",
-                "TEST_FILE_2": "/tmp/test_file_2"
+                "TEST_FILE": "first upload succsessful",
+		"TEST_FILE_2": "second upload succsessful"
             }
         }
     ]

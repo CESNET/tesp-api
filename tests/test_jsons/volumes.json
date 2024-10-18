@@ -2,7 +2,7 @@
     "inputs": [
         {
             "path": "/data/file_http",
-            "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+            "url": "http://service-http:5000/download/test.txt",
             "type": "FILE"
         }
     ],

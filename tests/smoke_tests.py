@@ -85,6 +85,17 @@ def _test_activity(json, timeout_running, timeout_complete, state = 'COMPLETE'):
         return False
     return _wait_for_state(id, state, timeout_complete)
 
+    task_response = _wait_for_state(id, state, timeout_complete)
+
+    # Retrieve and print resources if they exist
+    resources = _gnv(task_response, "resources")
+    if resources:
+        print(f"Resources for task {id}: {resources}")
+    else:
+        print(f"No resources found for task {id}.")
+
+    return task_response
+
 def _test_sequence_simple(jsons, timeout, state = 'COMPLETE'):
     for file_name in jsons:
         json = f'{file_name}.json'
@@ -172,3 +183,22 @@ def test_task_cancel():
     assert task_id
     _post_request(f"/v1/tasks/{task_id}:cancel")
     assert _wait_for_state(task_id, "CANCELED", 60)
+
+def test_resource_check_with_limits():
+    # Load the JSON file
+    json_data = _open_json('resource_check.json')
+
+    # Extract CPU cores and RAM values
+    cpu_cores = _gnv(json_data, "resources.cpu_cores")
+    ram_gb = _gnv(json_data, "resources.ram_gb")
+
+    # Define the maximum limits
+    max_cpu_cores = 4
+    max_ram_gb = 3.8
+
+    # Perform the checks with limits
+    assert cpu_cores <= max_cpu_cores, f"CPU cores exceed the limit: {cpu_cores} > {max_cpu_cores}"
+    assert ram_gb <= max_ram_gb, f"RAM exceeds the limit: {ram_gb} > {max_ram_gb}"
+
+    print(f"Requested resources: CPU cores = {cpu_cores}, RAM = {ram_gb} GB (Limits: {max_cpu_cores} cores, {max_ram_gb} GB RAM)")
+

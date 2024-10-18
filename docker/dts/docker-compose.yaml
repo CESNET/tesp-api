@@ -30,7 +30,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./http/data:/data
+      - ../../tests/test_data:/data
 
   tests-clients:
     build:
