@@ -1,0 +1,16 @@
+{
+    "resources": {
+        "cpu_cores": 1,
+        "preemptible": false,
+        "ram_gb": 1,
+        "disk_gb": 1,
+        "zones": ["us-west-1"]
+    },
+    "executors":[
+        {
+            "image":"ubuntu",
+            "command":[
+            ]
+        }
+    ]
+}
