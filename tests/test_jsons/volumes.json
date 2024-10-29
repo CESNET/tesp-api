@@ -2,7 +2,7 @@
     "inputs": [
         {
             "path": "/data/file_http",
-            "url": "http://service-http:5000/download/test.txt",
+            "url": "http://172.17.0.1:5000/download/test.txt",
             "type": "FILE"
         }
     ],
