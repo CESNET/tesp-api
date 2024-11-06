@@ -2,7 +2,7 @@
     "inputs": [
         {
             "path":"/data/file_direct",
-            "content":"ls -la /data/file_direct && ls -la /data/file_http\n",
+            "content":"ls -la /data/file_direct && ls -la /data/file_http",
             "type":"FILE"
         },
         {
@@ -12,12 +12,6 @@
         }
     ],
     "executors":[
-        {
-            "image":"ubuntu",
-            "command":[
-                "sh", "/data/file_direct"
-            ]
-        },
         {
             "image":"ubuntu",
             "command":[
