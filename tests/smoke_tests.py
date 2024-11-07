@@ -55,7 +55,7 @@ def _wait_for_state(id, expected_state, timeout = 10):
         
         # raise exception on wrong state (not right state and not RUNNING state)
         if actual_state != "INITIALIZING" and actual_state != "QUEUED" and actual_state != "RUNNING":
-            raise Exception(f"_wait_for_state(): unexpected state. ID: {id}, expected: {state}, given: {s}")
+            raise Exception(f"_wait_for_state(): unexpected state. ID: {id}, expected: {expected_state}, given: {actual_state}")
         
         time.sleep(1)
         
