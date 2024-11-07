@@ -91,6 +91,8 @@ async def handle_initializing_task(event: Event) -> None:
         print(volumes)
         output_confs, volume_confs = map_volumes(str(job_id), volumes, outputs)
 
+        print(inputs)
+
         for i in range(0, len(inputs)):
             content = inputs[i].content
             pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'

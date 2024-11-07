@@ -1,3 +1,9 @@
+The `docker-compose.yaml` file in this directory is primarily intended for testing the DTS services of the TESP API.
+To ensure proper execution of the tests, run `docker-compose.yaml` both in this directory and in the `/tesp-api` directory with:
+```
+docker compose up -d --build
+```
+
 # DTS
 
 Example of data transfer server using HTTP, S3 and FTP.
