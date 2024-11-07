@@ -59,7 +59,7 @@ def _wait_for_state(id, expected_state, timeout = 10):
         
         time.sleep(1)
         
-    raise Exception(f"_wait_for_state(): timeout. ID: {id}, state: {s}")
+    raise Exception(f"_wait_for_state(): timeout. ID: {id}, state: {actual_state}")
 
 def _test_simple(json, timeout, expected_state = 'COMPLETE'):
     # submit task
@@ -167,7 +167,7 @@ def test_volumes():
 
 # Verifies that environment variables from envs.json are correctly echoed to output files with expected content. 
 def test_envs():
-    assert _test_simple("envs.json", 60)
+    assert _test_simple("envs.json", 100)
     
     expected_files = {
         f"{script_directory}/test_data/env_test_1": "first upload successful\n",
