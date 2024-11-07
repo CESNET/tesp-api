@@ -164,11 +164,11 @@ def test_inputs():
 # Downloads and copies file to the shared volume and displays its content with two separate executors.
 def test_volumes():
     assert _test_simple("volumes.json", 60)
- 
+
+# Verifies that environment variables from envs.json are correctly echoed to output files with expected content. 
 def test_envs():
     assert _test_simple("envs.json", 60)
     
-    # Define the expected file paths and their corresponding expected content
     expected_files = {
         f"{script_directory}/test_data/env_test_1": "first upload successful\n",
         f"{script_directory}/test_data/env_test_2": "second upload successful\n"
@@ -205,6 +205,7 @@ def test_task_cancel():
     _post_request(f"/v1/tasks/{task_id}:cancel")
     assert _wait_for_state(task_id, "CANCELED", 60)
 
+# Checks whether given task exceeds available resources.
 def test_resource_check_with_limits():
     # Load the JSON file
     json_data = _open_json('resource_check.json')
