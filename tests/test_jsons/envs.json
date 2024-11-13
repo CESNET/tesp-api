@@ -3,12 +3,12 @@
 
     {
         "path": "/tesp-api/tests/test_data/env_test_1",
-        "url": "http://10.10.11.12:5000/upload",
+        "url": "http://172.17.0.1:5000/upload",
         "type": "FILE"
     },
     {
 	"path": "/tesp-api/tests/test_data/env_test_2",
-        "url": "http://10.10.11.12:5000/upload",
+        "url": "http://172.17.0.1:5000/upload",
         "type": "FILE"
     }
 
@@ -26,3 +26,4 @@
         }
     ]
 }
+
