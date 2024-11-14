@@ -23,7 +23,7 @@ def _get_request(url):
     assert resp.json()
     return resp.json()
 
-def _wait_for_state(task_id, target_state, timeout=60):
+def _wait_for_state(task_id, target_state, timeout=100):
     """Wait for a task to reach the desired state (e.g., COMPLETE, CANCELED) or timeout."""
     for _ in range(timeout):
         resp = _get_request(f"/v1/tasks/{task_id}")
@@ -45,7 +45,7 @@ def test_stress_multiple_task_submission():
     task_filename = "load_stress.json"  # JSON file defining the task
     task_payload = _open_json(task_filename)
     
-    num_tasks = 10  # Number of tasks to submit
+    num_tasks = 100  # Number of tasks to submit
     submitted_tasks = []
 
     # Submit tasks concurrently using ThreadPoolExecutor
@@ -69,7 +69,7 @@ def test_stress_multiple_task_submission():
     completed_tasks = 0
     for task_id in submitted_tasks:
         try:
-            _wait_for_state(task_id, "COMPLETE", timeout=60)  # Wait for each task to complete
+            _wait_for_state(task_id, "COMPLETE", timeout=100)  # Wait for each task to complete
             completed_tasks += 1
         except Exception as e:
             print(f"Task {task_id} failed to complete: {e}")
