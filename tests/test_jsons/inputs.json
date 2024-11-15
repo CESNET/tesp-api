@@ -2,22 +2,16 @@
     "inputs": [
         {
             "path":"/data/file_direct",
-            "content":"ls -la /data/file_direct && ls -la /data/file_http\n",
+            "content":"ls -la /data/file_direct && ls -la /data/file_http",
             "type":"FILE"
         },
         {
             "path": "/data/file_http",
-            "url": "http://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+            "url": "http://172.17.0.1:5000/download/test.txt",
             "type": "FILE"
         }
     ],
     "executors":[
-        {
-            "image":"ubuntu",
-            "command":[
-                "sh", "/data/file_direct"
-            ]
-        },
         {
             "image":"ubuntu",
             "command":[

@@ -24,6 +24,10 @@ jobs:
         run: |
           docker compose up -d --build
 
+      - name: run docker compose dts
+        run: |
+          docker compose -f docker/dts/docker-compose.yaml up -d
+
       - name: instal pytest
         run: pip install pytest
 
