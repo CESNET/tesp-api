@@ -327,7 +327,10 @@ class TESJobRunner(AsynchronousJobRunner):
             staging_out_url = client_args['files_endpoint']
 
 
-        job_script = self.base_job_script([work_dir, object_store_path], work_dir, job_wrapper.tool.description)
+        subdirs = ["inputs", "outputs"]
+        subdir_paths = [f"{work_dir}/{subdir}" for subdir in subdirs]
+
+        job_script = self.base_job_script([work_dir] + subdir_paths + [object_store_path], work_dir, job_wrapper.tool.description)
 
         job_script["inputs"].extend(self.in_descriptors(client_args['files_endpoint'], tool_files))
         job_script["inputs"].extend(self.in_descriptors(client_args['files_endpoint'], self.get_job_directory_files(work_dir)))
@@ -530,3 +533,5 @@ class TESJobRunner(AsynchronousJobRunner):
             log.debug("(%s/%s) is still in DRM queued state, adding to the DRM queue" % (job.id, job.job_runner_external_id))
             job_state.running = False
             self.monitor_queue.put(job_state)
+
+
