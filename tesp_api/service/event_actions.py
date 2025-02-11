@@ -211,41 +211,41 @@ async def handle_run_task(event: Event) -> None:
         command_status = await pulsar_operations.job_status_complete(str(task_id))
 
         command_end_time = datetime.datetime.now(datetime.timezone.utc)
-        await append_task_executor_logs(
-            task_id,
-            author,
-            TesTaskState.RUNNING,
-            command_start_time,
-            command_end_time,
-            command_status['stdout'],
-            command_status['stderr'],
-            command_status['returncode']
-        )
-        if command_status['returncode'] != 0:
-            task = await task_repository.update_task_state(
-                task_id,
-                TesTaskState.RUNNING,
-                TesTaskState.EXECUTOR_ERROR
-            )
-
-            raise TaskExecutorError()
+#        await append_task_executor_logs(
+#            task_id,
+#            author,
+#            TesTaskState.RUNNING,
+#            command_start_time,
+#            command_end_time,
+#            command_status['stdout'],
+#            command_status['stderr'],
+#            command_status['returncode']
+#        )
+#        if command_status['returncode'] != 0:
+#            task = await task_repository.update_task_state(
+#                task_id,
+#                TesTaskState.RUNNING,
+#                TesTaskState.EXECUTOR_ERROR
+#            )
+#
+#            raise TaskExecutorError()
 
     except Exception as error:
         pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
 
     #    dispatch_event('finalize_task', payload)
-    await Promise(lambda resolve, reject: resolve(None)) \
-        .then(lambda ignored: task_repository.update_task_state(
-            task_id,
-            TesTaskState.RUNNING,
-            TesTaskState.COMPLETE
-        )) \
-        .map(lambda task: get_else_throw(
-            task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
-            )) \
-        .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
-        .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
-        .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function
+#    await Promise(lambda resolve, reject: resolve(None)) \
+#        .then(lambda ignored: task_repository.update_task_state(
+#            task_id,
+#            TesTaskState.RUNNING,
+#            TesTaskState.COMPLETE
+#        )) \
+#        .map(lambda task: get_else_throw(
+#            task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
+#            )) \
+#        .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
+#        .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
+#        .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function
 
 ### Removed as no longer needed to finnish the job ###
 # @local_handler.register(event_name='finalize_task')
