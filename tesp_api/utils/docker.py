@@ -57,10 +57,10 @@ class DockerRunCommandBuilder:
 
         # sh -c '' # there probably must be ' instead of " because of the passing unresolved envs into the container
         self._command = self._command.map(lambda _command:
-                                          f'/bin/bash -c \'{_command}' # f'"{_command}'
+                                          f'{_command}'
                                           f'{stdin.maybe("", lambda x: " <" + x)}'
                                           f'{stdout.maybe("", lambda x: " 1>" + x)}'
-                                          f'{stderr.maybe("", lambda x: " 2>" + x)}\'')
+                                          f'{stderr.maybe("", lambda x: " 2>" + x)}')
         return self
 
     def reset(self) -> None:
@@ -220,3 +220,4 @@ def map_volumes(job_id: str, volumes: List[str], outputs: List[TesTaskOutput]):
             })
 
     return output_confs, volume_confs
+

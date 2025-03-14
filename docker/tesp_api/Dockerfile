@@ -51,5 +51,5 @@ RUN poetry install
 WORKDIR /app
 COPY . .
 
-EXPOSE 8080
-CMD ["uvicorn", "--reload", "--host=0.0.0.0", "--port=8080", "tesp_api.tesp_api:app"]
+EXPOSE 8000
+CMD ["uvicorn", "--reload", "--host=0.0.0.0", "--port=8000", "tesp_api.tesp_api:app"]
