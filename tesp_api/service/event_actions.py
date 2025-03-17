@@ -183,6 +183,7 @@ async def handle_run_task(event: Event) -> None:
                 run_command, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount, mount_job_dir, i)
 
+
             await pulsar_operations.upload(
                 payload['task_id'], DataType.INPUT,
                 file_content=Just(script_content),
@@ -246,35 +247,3 @@ async def handle_run_task(event: Event) -> None:
         .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
         .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
         .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function
-
-### Removed as no longer needed to finnish the job ###
-# @local_handler.register(event_name='finalize_task')
-# async def handle_finalize_task(event: Event) -> None:
-#     event_name, payload = event
-#     task_id: ObjectId = payload['task_id']
-#     output_confs: List[dict] = payload['output_confs']
-#     volume_confs: List[dict] = payload['volume_confs']
-#     resource_conf: dict = payload['resource_conf']
-#     pulsar_outputs_dir_path: str = payload['task_config']['outputs_directory']
-#     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
-#
-#     async def transfer_files():
-#
-#         run_command = f"set -xe && " + stage_out_command
-#         print(run_command)
-#         # start the task (docker container/s) in the pulsar
-#         await pulsar_operations.run_job(task_id, run_command)
-#         command_status = await pulsar_operations.job_status_complete(str(task_id))
-#
-#     await transfer_files()
-#
-#     await (Promise(lambda resolve, reject: resolve(None)) \
-#         .then(lambda ignored: task_repository.update_task(
-#         {'_id': task_id, "state": TesTaskState.RUNNING},
-#         {'$set': {'state': TesTaskState.COMPLETE}})))
-    # .map(lambda task: get_else_throw(
-    #     task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
-    #     ))
-    # .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
-    #     .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
-    #     .then(lambda x: x)) # invokes promise returned by error handler, otherwise acts as identity function

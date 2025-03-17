@@ -6,8 +6,10 @@ from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 from pydantic.class_validators import root_validator
 
-from tesp_api.utils.types import AnyUrl, FtpUrl, S3Url, HttpUrl, HttpsUrl
+from tesp_api.utils.types import AnyUrl, FtpUrl, S3Url, HttpUrl, HttpsUrl, LocalFileUrl
 from tesp_api.repository.model.py_object_id import PyObjectId
+from pydantic import BaseModel, Field, root_validator
+from typing import Union
 
 
 class TesTaskView(str, Enum):
@@ -37,7 +39,8 @@ class TesTaskInput(BaseModel):
     name: str = None
     description: str = None
 
-    url: Union[S3Url, FtpUrl, HttpUrl, HttpsUrl] = Field(
+    # Update this field to support the new LocalFileUrl
+    url: Union[S3Url, FtpUrl, HttpUrl, HttpsUrl, LocalFileUrl] = Field(
         None, description='REQUIRED, unless "content" is set. URL in long term storage, for example: '
                           ' - s3://my-object-store/file1'
                           ' - gs://my-bucket/file2'
@@ -57,10 +60,9 @@ class TesTaskInput(BaseModel):
 
     @root_validator(pre=False)
     def validate_content(cls, values):
-        if values["content"]:
+        if values.get("content"):
             values["url"] = None
         return values
-
 
 class TesTaskOutput(BaseModel):
     name: str = Field(None, description="User-provided name of output file")
