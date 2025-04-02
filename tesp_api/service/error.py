@@ -27,10 +27,18 @@ class TaskExecutorError(Exception):
     def __init(self):
         super().__init__()
 
+
+class BasicAuthError(Exception):
+    def __init__(self, detail: str = "Invalid BasicAuth credentials"):
+        super().__init__(detail)
+        self.detail = detail
+
+
 class OAuth2TokenError(Exception):
 
     def __init(self):
         super().__init__()
+
 
 class UnsupportedProtocolError(Exception):
 
