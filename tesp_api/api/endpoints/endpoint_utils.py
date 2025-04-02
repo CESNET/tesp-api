@@ -1,5 +1,4 @@
 import time
-import secrets
 from typing import Optional
 
 from fastapi import status, HTTPException
@@ -12,7 +11,7 @@ from fastapi.params import Query, Depends
 from tesp_api.config.properties import properties
 from tesp_api.repository.model.task import TesTaskView
 from tesp_api.api.model.response_models import ErrorResponseModel
-from tesp_api.service.error import OAuth2TokenError
+from tesp_api.service.error import OAuth2TokenError, BasicAuthError
 from tesp_api.utils.token_validator import verify_token
 from tesp_api.utils.basic_auth import verify_basic_auth
 
