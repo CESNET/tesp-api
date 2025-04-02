@@ -1,9 +1,10 @@
 import time
+import secrets
 from typing import Optional
 
 from fastapi import status, HTTPException
 from fastapi.responses import Response
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBasic, HTTPBasicCredentials
 from pydantic.main import BaseModel
 from pymonad.maybe import Nothing, Maybe
 from fastapi.params import Query, Depends
@@ -13,6 +14,7 @@ from tesp_api.repository.model.task import TesTaskView
 from tesp_api.api.model.response_models import ErrorResponseModel
 from tesp_api.service.error import OAuth2TokenError
 from tesp_api.utils.token_validator import verify_token
+from tesp_api.utils.basic_auth import verify_basic_auth
 
 descriptions = {
     "tasks-create":  "Create a new task. The user provides a Task document, which the "
@@ -49,6 +51,7 @@ qry_var_page_token = Query(None, description=query_descriptions['page_token'])
 qry_var_view = Query(TesTaskView.MINIMAL, description=query_descriptions['view'])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+basic_auth_scheme = HTTPBasic(auto_error=False)  # Basic Auth support
 
 
 async def view_query_params(view: Optional[TesTaskView] = qry_var_view):
@@ -67,13 +70,21 @@ async def list_query_params(name_prefix: Optional[str] = qry_var_name_prefix,
     }
 
 
-def parse_verify_token(token = Depends(oauth2_scheme)):
+def parse_verify_token(
+    token: str = Depends(oauth2_scheme),
+    basic_credentials: HTTPBasicCredentials = Depends(basic_auth_scheme)
+):
+    if properties.basic_auth.enable:
+        try:
+            return verify_basic_auth(basic_credentials.username, basic_credentials.password)
+        except BasicAuthError as e:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
     if not properties.oauth.enable:
         return None
 
     try:
-        subject = verify_token(token)
-        return subject
+        return verify_token(token)
     except OAuth2TokenError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
