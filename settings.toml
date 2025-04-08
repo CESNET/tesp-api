@@ -8,7 +8,9 @@ logging.level = "DEBUG"
 logging.output_json = false
 
 oauth.enable = false
-
+basic_auth.enable = false
+basic_auth.username = "user"
+basic_auth.password = "password"
 
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
