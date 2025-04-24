@@ -30,6 +30,10 @@ jobs:
       - name: pytest run smoke tests
         run: |
           pytest tests/smoke_tests.py
+          
+      - name: pytest run stress and load test
+        run: |
+          pytest tests/load_stress_test.py
 
       - name: Set version from CHANGELOG
         id: version
