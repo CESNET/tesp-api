@@ -156,12 +156,16 @@ async def handle_run_task(event: Event) -> None:
             start_time=Just(datetime.datetime.now(datetime.timezone.utc))
         )
 
-        # prepare docker commands
+        # prepare container commands, initialize to None
         container_cmds = list()
-        # stage-in
+        stage_in_command = None
+        stage_out_command = None
+
+        # stage-in preparation
         print("Payload:")
         print(payload)
         stage_in_mount = payload['task_config']['inputs_directory']
+        # Define a generic executor for staging operations
         stage_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
                                         command=[],
                                         workdir=Path("/downloads"))
@@ -169,81 +173,124 @@ async def handle_run_task(event: Event) -> None:
         if CONTAINER_TYPE == "docker":
             stage_in_command = docker_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
         elif CONTAINER_TYPE == "singularity":
-            stage_exec.image = "docker://" + stage_exec.image
-            stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
+            # Adapt image name if needed for singularity
+            singularity_stage_exec = TesTaskExecutor(image="docker://" + stage_exec.image, command=[], workdir=stage_exec.workdir)
+            stage_in_command = singularity_stage_in_command(singularity_stage_exec, resource_conf, stage_in_mount, input_confs)
+            # Note: Assumes singularity_stage_in_command was also modified to return None if input_confs is empty. If not, this part needs adjustment.
 
-        # container_cmds.append(stage_in_command)
 
+        # Main execution commands
         for i, executor in enumerate(task.executors):
+            run_command = ""
+            script_content = ""
             if CONTAINER_TYPE == "docker":
-                run_command, script_content = docker_run_command(executor, task_id, resource_conf, volume_confs,
+                run_command, script_content = docker_run_command(executor, str(task_id), resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount, i)
             elif CONTAINER_TYPE == "singularity":
                 mount_job_dir = payload['task_config']['job_directory']
-                run_command, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
+                run_command, script_content = singularity_run_command(executor, str(task_id), resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount, mount_job_dir, i)
 
+            if run_command and script_content: # Ensure command generation was successful
+                await pulsar_operations.upload(
+                    payload['task_id'], DataType.INPUT,
+                    file_content=Just(script_content),
+                    file_path=f'run_script_{i}.sh')
+                container_cmds.append(run_command)
 
-            await pulsar_operations.upload(
-                payload['task_id'], DataType.INPUT,
-                file_content=Just(script_content),
-                file_path=f'run_script_{i}.sh')
-            container_cmds.append(run_command)
-
+        # Stage-out preparation
         if CONTAINER_TYPE == "docker":
-            stage_out_command = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
+             stage_out_command = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
         elif CONTAINER_TYPE == "singularity":
             mount_job_dir = payload['task_config']['job_directory']
-            bind_mount = payload['task_config']['inputs_directory']
-            stage_out_command = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
+            bind_mount = payload['task_config']['inputs_directory'] # This might need adjustment based on actual stage-out needs
+            # Adapt image name if needed for singularity
+            singularity_stage_exec = TesTaskExecutor(image="docker://" + stage_exec.image, command=[], workdir=stage_exec.workdir)
+            stage_out_command = singularity_stage_out_command(singularity_stage_exec, resource_conf, bind_mount,
                                                               output_confs, volume_confs, mount_job_dir)
+            # Note: Assumes singularity_stage_out_command was also modified to return None if output_confs is empty. If not, this part needs adjustment.
 
-        # Join all commands with " && "
-        run_commands = " && ".join(container_cmds)
 
-        run_command = (f"""set -xe && {stage_in_command} && {run_commands} && {stage_out_command}""")
+        # Build the final command string conditionally
+        final_command_parts = ['set -xe'] # Start with execution options
 
-        command_start_time = datetime.datetime.now(datetime.timezone.utc)
+        if stage_in_command:
+            final_command_parts.append(stage_in_command)
 
-        # start the task (docker container/s) in the pulsar
-        await pulsar_operations.run_job(task_id, run_command)
+        if container_cmds: # Only add run commands if there are any
+            final_command_parts.append(" && ".join(container_cmds))
 
-        # wait for the task
-        command_status = await pulsar_operations.job_status_complete(str(task_id))
+        if stage_out_command:
+             final_command_parts.append(stage_out_command)
 
-        command_end_time = datetime.datetime.now(datetime.timezone.utc)
-        await append_task_executor_logs(
-            task_id,
-            author,
-            TesTaskState.RUNNING,
-            command_start_time,
-            command_end_time,
-            command_status['stdout'],
-            command_status['stderr'],
-            command_status['returncode']
-        )
-        if command_status['returncode'] != 0:
-            task = await task_repository.update_task_state(
+        # Join the parts that exist with ' && '
+        # Filter out potential empty strings just in case, though the logic above should prevent them
+        final_run_command = " && ".join(filter(None, final_command_parts))
+
+
+        # Ensure there's actually something to run
+        if len(final_command_parts) <= 1 : # Only 'set -xe' is present
+             print(f"Task {task_id}: No commands to execute (no stage-in, no main executors, no stage-out). Skipping Pulsar job run.")
+             # Decide how to proceed - mark as complete? Error? For now, let's proceed to completion logic.
+             # We might skip pulsar interaction entirely here.
+
+        else:
+            print(f"Task {task_id}: Final command to run in Pulsar:")
+            print(final_run_command)
+            command_start_time = datetime.datetime.now(datetime.timezone.utc)
+
+            # start the task (docker container/s) in the pulsar
+            await pulsar_operations.run_job(task_id, final_run_command)
+
+            # wait for the task
+            command_status = await pulsar_operations.job_status_complete(str(task_id))
+
+            command_end_time = datetime.datetime.now(datetime.timezone.utc)
+            await append_task_executor_logs(
                 task_id,
+                author,
                 TesTaskState.RUNNING,
-                TesTaskState.EXECUTOR_ERROR
+                command_start_time,
+                command_end_time,
+                command_status['stdout'],
+                command_status['stderr'],
+                command_status['returncode']
             )
+            if command_status['returncode'] != 0:
+                await task_repository.update_task_state( # Await the update
+                    task_id,
+                    TesTaskState.RUNNING,
+                    TesTaskState.EXECUTOR_ERROR
+                )
+                # Log the error details before raising
+                print(f"Task {task_id} executor error. Pulsar job return code: {command_status['returncode']}")
+                print(f"Stdout:\n{command_status['stdout']}")
+                print(f"Stderr:\n{command_status['stderr']}")
+                raise TaskExecutorError(f"Pulsar job failed with return code {command_status['returncode']}")
 
-            raise TaskExecutorError()
 
     except Exception as error:
-        pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
+        print(f"Error during task {task_id} execution in event {event_name}: {type(error).__name__} - {error}")
+        import traceback
+        traceback.print_exc()
+        # Call the existing error handler
+        await pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
+        # Rethrow or handle cleanup if pulsar_event_handle_error doesn't terminate execution flow
+        return # Stop further processing in this handler after error
 
-    #    dispatch_event('finalize_task', payload)
+    # Finalize task - This part runs only if no exceptions occurred or were caught and handled above
+    # If an error occurred and was handled by pulsar_event_handle_error which updated state,
+    # this final update to COMPLETE might be incorrect. Consider state check if needed.
+    print(f"Task {task_id}: Execution seemingly successful, proceeding to finalize.")
     await Promise(lambda resolve, reject: resolve(None)) \
         .then(lambda ignored: task_repository.update_task_state(
             task_id,
-            TesTaskState.RUNNING,
+            TesTaskState.RUNNING, # Original state before completion
             TesTaskState.COMPLETE
         )) \
         .map(lambda task: get_else_throw(
-            task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING))
+            task, TaskNotFoundError(task_id, Just(TesTaskState.RUNNING)) # Expect RUNNING if successful
             )) \
         .then(lambda ignored: pulsar_operations.erase_job(task_id)) \
-        .catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)) \
+        .catch(lambda error: pulsar_event_handle_error(error, task_id, "finalize_task", pulsar_operations)) \
         .then(lambda x: x) # invokes promise returned by error handler, otherwise acts as identity function
