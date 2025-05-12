@@ -93,16 +93,24 @@ async def handle_initializing_task(event: Event) -> None:
 
         print(inputs)
 
-        for i in range(0, len(inputs)):
-            content = inputs[i].content
+        for i, input_item in enumerate(inputs):
             pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
-            if content is not None and inputs[i].url is None:
-                #content = await file_transfer_service.download_file(inputs[i].url)
+        
+            if input_item.type == TesTaskIOType.DIRECTORY:
+                pulsar_path = input_item.url  # Presumably already valid
+            elif input_item.content is not None and input_item.url is None:
                 pulsar_path = await pulsar_operations.upload(
                     job_id, DataType.INPUT,
-                    file_content=Just(content),
-                    file_path=f'input_file_{i}')
-            input_confs.append({'container_path': inputs[i].path, 'pulsar_path': pulsar_path, 'url':inputs[i].url})
+                    file_content=Just(input_item.content),
+                    file_path=f'input_file_{i}'
+                )
+        
+            input_confs.append({
+                'container_path': input_item.path,
+                'pulsar_path': pulsar_path,
+                'url': input_item.url,
+                'type': input_item.type
+            })
 
         return resource_conf, volume_confs, input_confs, output_confs
 
