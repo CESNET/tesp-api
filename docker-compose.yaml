@@ -39,6 +39,8 @@ services:
       dockerfile: Dockerfile
       target: development
     image: pulsar_rest
+    profiles:
+      - pulsar
     container_name: pulsar-rest
     privileged: true
     expose:
