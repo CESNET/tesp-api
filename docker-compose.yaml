@@ -5,6 +5,7 @@ services:
       dockerfile: docker/tesp_api/Dockerfile
       target: development
     image: tesp-api
+    profiles: ["api", "all"]
     environment:
       - CONTAINER_TYPE=docker  # Set to "docker", "singularity", or "both"
     container_name: tesp-api
@@ -21,6 +22,7 @@ services:
 
   tesp-db:
     image: mongo:latest
+    profiles: ["api", "all"]
     container_name: tesp-db
     volumes:
       - ./docker/mongodb/data:/data/db
@@ -39,8 +41,7 @@ services:
       dockerfile: Dockerfile
       target: development
     image: pulsar_rest
-    profiles:
-      - pulsar
+    profiles: ["pulsar", "all"]
     container_name: pulsar-rest
     privileged: true
     expose:
