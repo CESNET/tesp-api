@@ -5,7 +5,8 @@ from bson.objectid import ObjectId
 from pymonad.promise import Promise
 from fastapi.params import Depends
 from fastapi import APIRouter, Body
-from fastapi.responses import Response
+# MODIFIED: Import JSONResponse
+from fastapi.responses import Response, JSONResponse
 
 from tesp_api.api.error import api_handle_error
 from tesp_api.service.event_dispatcher import dispatch_event
@@ -101,17 +102,25 @@ async def get_tasks(
 
 
 @router.post("/tasks/{id}:cancel",
-             responses={200: {"description": "Ok"}},
+             responses={200: {"description": "Ok"}}, # Consider adding a response_model if GA4GH TES spec defines one for cancel
              description=descriptions["tasks-delete"],)
 async def cancel_task(
         id: str,
         token_subject: str = Depends(parse_verify_token),
-        ) -> Response:
+        ) -> Response: # Return type is still Response, JSONResponse is a subclass
     return await Promise(lambda resolve, reject: resolve((
             maybe_of(token_subject),
             ObjectId(id)
     ))).then(lambda get_tasks_args: task_repository.cancel_task(*get_tasks_args))\
-        .map(lambda task_id: Response(status_code=200, media_type="application/json"))\
+        .map(lambda task_id_maybe: 
+             # MODIFIED: Use JSONResponse to ensure the body is "{}"
+             # task_id_maybe here is likely a Maybe[ObjectId] or similar from cancel_task
+             # We just need to return an empty JSON object on success.
+             # If cancel_task itself can fail and we want to return a different status,
+             # that logic would need to be built into how cancel_task's result is handled.
+             # Assuming cancel_task raises an exception handled by .catch(api_handle_error) on failure.
+             JSONResponse(content={}, status_code=200)
+        )\
         .catch(api_handle_error)
 
 
@@ -119,7 +128,7 @@ async def cancel_task(
             responses={200: {"description": "Ok"}},
             description=descriptions["service-info"],
             response_model=TesServiceInfo)
-async def get_service_info() -> TesServiceInfo:
+async def get_service_info() -> TesServiceInfo: # FastAPI directly handles Pydantic model return
     return TesServiceInfo(
         id="fi.muni.cz.tesp",
         name="TESP",
