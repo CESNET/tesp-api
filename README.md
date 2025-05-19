@@ -196,7 +196,8 @@ Service representing `TESP API` is configured to mount this project sources as a
 same command as is mentioned above. Therefore, any changes made to the sources in this repository will be immediately applied to the docker
 service as well, enabling live reloading which makes development within the `docker` environment very easy.
 ```shell
-docker-compose up -d
+docker compose --profile all up -d
+
 ```
 
 &nbsp;
