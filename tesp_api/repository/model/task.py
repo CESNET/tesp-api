@@ -52,7 +52,7 @@ class TesTaskInput(BaseModel):
         ..., description="Path of the file inside the container. Must be an absolute path.",
         example="/data/file1")
 
-    type: TesTaskIOType = Field(..., example=TesTaskIOType.FILE)
+    type: TesTaskIOType = TesTaskIOType.FILE
     content: str = Field(
         None, description="File content literal. Implementations should support a minimum of 128 KiB "
                           "in this field and may define their own maximum. UTF-8 encoded If content "
