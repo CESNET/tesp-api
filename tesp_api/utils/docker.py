@@ -97,21 +97,27 @@ class DockerRunCommandBuilder:
         env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
         command_str = self._command.maybe("", lambda x: x)
 
-        chmod_commands = f"chmod +x /tmp/{self._job_id}/run_script_{i}.sh"
+        # chmod_commands = f"chmod +x /tmp/{self._job_id}/run_script_{i}.sh"
+        chmod_commands = ""
         if self._bind_mounts:
-            chmod_commands += ' && ' + ' && '.join(f"chmod +x {key}" for key in self._bind_mounts)
+            if len(chmod_commands) > 0:
+                chmod_commands += ' && '
+            chmod_commands += ' && '.join(f"chmod +x {key}" for key in self._bind_mounts)
         if self._volumes:
-            chmod_commands += ' && ' + ' && '.join(f"chmod +x {key}" for key in self._volumes)
+            if len(chmod_commands) > 0:
+                chmod_commands += ' && '
+            chmod_commands += ' && '.join(f"chmod +x {key}" for key in self._volumes)
 
         # Define the content of the script
         script_content = f'''\
-        #!/bin/bash
-        {command_str}
-        '''
+#!/bin/bash
+{command_str}
+'''
 
-        run_command = (f'docker run {resources_str} {workdir_str} {env_str} '
-                        f'{volumes_str} {bind_mounts_str} {docker_image} '
-                        f'sh -c "{chmod_commands} && /tmp/{self._job_id}/run_script_{i}.sh"')
+        run_command = (f'chmod +x {inputs_directory}/run_script_{i}.sh && '
+                        f'docker run {resources_str} {workdir_str} {env_str} '
+                        f'{volumes_str} {bind_mounts_str} -- {docker_image} '
+                        ) + command_str
 
         self.reset()
         return run_command, script_content
