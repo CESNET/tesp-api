@@ -22,7 +22,7 @@ jobs:
 
       - name: run docker compose
         run: |
-          docker compose up -d --build
+          docker compose --profile all up -d --build
 
       - name: run docker compose dts
         run: |
