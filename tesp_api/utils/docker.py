@@ -142,6 +142,9 @@ def docker_run_command(executor: TesTaskExecutor, job_id: str, resource_conf: di
 
 def docker_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
                             bind_mount: str, input_confs: List[dict]) -> str:
+    if not input_confs:
+        return None
+
     command_builder = DockerRunCommandBuilder() \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
@@ -165,6 +168,9 @@ def docker_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
 
 def docker_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
                              output_confs: List[dict], volume_confs: List[dict]) -> str:
+    if not output_confs:
+        return None
+
     command_builder = DockerRunCommandBuilder() \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
@@ -220,4 +226,3 @@ def map_volumes(job_id: str, volumes: List[str], outputs: List[TesTaskOutput]):
             })
 
     return output_confs, volume_confs
-
