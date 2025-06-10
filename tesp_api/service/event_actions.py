@@ -79,11 +79,10 @@ async def handle_initializing_task(event: Event) -> None:
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
     async def setup_data(job_id: ObjectId,
-                         resources: TesTaskResources,
-                         volumes: List[str],
-                         inputs: List[TesTaskInput],
-                         outputs: List[TesTaskOutput]):
-        """Helper to configure resources, volumes, inputs, and outputs for Pulsar."""
+            resources: TesTaskResources,
+            volumes: List[str],
+            inputs: List[TesTaskInput],
+            outputs: List[TesTaskOutput]):
         resource_conf: dict
         volume_confs: List[dict] = []
         input_confs: List[dict] = []
@@ -94,9 +93,7 @@ async def handle_initializing_task(event: Event) -> None:
             'ram_gb': resources.ram_gb if resources else None
         })
 
-        mapped_outputs, mapped_volumes = map_volumes(str(job_id), volumes, outputs)
-        output_confs.extend(mapped_outputs)
-        volume_confs.extend(mapped_volumes)
+        output_confs, volume_confs = map_volumes(str(job_id), volumes, outputs)
 
         for i, tes_input in enumerate(inputs):
             content = tes_input.content
@@ -118,12 +115,12 @@ async def handle_initializing_task(event: Event) -> None:
             TesTaskState.INITIALIZING
         )).map(lambda updated_task: get_else_throw(
             updated_task, TaskNotFoundError(task_id, Just(TesTaskState.QUEUED))
-        )).then(lambda updated_task_val: setup_data(
+        )).then(lambda updated_task: setup_data(
             task_id,
-            maybe_of(updated_task_val.resources).maybe(None, lambda x: x),
-            maybe_of(updated_task_val.volumes).maybe([], lambda x: x),
-            maybe_of(updated_task_val.inputs).maybe([], lambda x: x),
-            maybe_of(updated_task_val.outputs).maybe([], lambda x: x)
+            maybe_of(updated_task.resources).maybe(None, lambda x: x),
+            maybe_of(updated_task.volumes).maybe([], lambda x: x),
+            maybe_of(updated_task.inputs).maybe([], lambda x: x),
+            maybe_of(updated_task.outputs).maybe([], lambda x: x)
         )).map(lambda res_input_output_confs: dispatch_event('run_task', {
             **payload,
             'resource_conf': res_input_output_confs[0],
