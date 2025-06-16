@@ -31,7 +31,8 @@ from tesp_api.repository.model.task import (
     TesTaskExecutor,
     TesTaskResources,
     TesTaskInput,
-    TesTaskOutput
+    TesTaskOutput,
+    TesTaskIOType
 )
 from tesp_api.repository.task_repository_utils import append_task_executor_logs, update_last_task_log_time
 
@@ -94,17 +95,17 @@ async def handle_initializing_task(event: Event) -> None:
         print(inputs)
 
         for i, input_item in enumerate(inputs):
-            pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
-        
             if input_item.type == TesTaskIOType.DIRECTORY:
-                pulsar_path = input_item.url  # Presumably already valid
+                pulsar_path = payload['task_config']['inputs_directory'] + f'/input_dir_{i}'
             elif input_item.content is not None and input_item.url is None:
                 pulsar_path = await pulsar_operations.upload(
                     job_id, DataType.INPUT,
                     file_content=Just(input_item.content),
                     file_path=f'input_file_{i}'
                 )
-        
+            else:
+                pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
+
             input_confs.append({
                 'container_path': input_item.path,
                 'pulsar_path': pulsar_path,
@@ -210,6 +211,8 @@ async def handle_run_task(event: Event) -> None:
         run_commands = " && ".join(container_cmds)
 
         run_command = (f"""set -xe && {stage_in_command} && {run_commands} && {stage_out_command}""")
+
+        print(run_command)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
 

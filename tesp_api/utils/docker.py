@@ -1,9 +1,11 @@
 import os
+import shlex
+from urllib.parse import urlparse
 from typing import Dict, List, Tuple
 
 from pymonad.maybe import Nothing, Maybe, Just
 
-from tesp_api.repository.model.task import TesTaskExecutor, TesTaskOutput
+from tesp_api.repository.model.task import TesTaskExecutor, TesTaskOutput, TesTaskIOType
 from tesp_api.utils.functional import get_else_throw, maybe_of
 
 
@@ -140,51 +142,104 @@ def docker_run_command(executor: TesTaskExecutor, job_id: str, resource_conf: di
 
     return command_builder.get_run_command_script(inputs_directory, i)
 
-def docker_stage_in_command(executor: TesTaskExecutor, resource_conf: dict,
-                            bind_mount: str, input_confs: List[dict]) -> str:
-    command_builder = DockerRunCommandBuilder() \
-        .with_image(executor.image) \
-        .with_workdir(executor.workdir) \
+def docker_stage_in_command(
+    executor: TesTaskExecutor,
+    resource_conf: dict,
+    bind_mount: str,
+    input_confs: List[dict]
+) -> str:
+    command_builder = (
+        DockerRunCommandBuilder()
+        .with_image(executor.image)
+        .with_workdir(executor.workdir)
         .with_resource(resource_conf)
+    )
 
-    command = ""
+    stage_in_commands = []
 
-    for input in input_confs:
-        if (input['url']):
-            command += "curl -o " + os.path.basename(input['pulsar_path']) + " '" + input['url'] + "' && "
-    command = command[:-3]
+    for input_conf in input_confs:
+        url = input_conf.get('url')
+        input_type = input_conf.get('type', TesTaskIOType.FILE)
+        pulsar_path = os.path.basename(input_conf['pulsar_path'])
 
-    command_builder._command = Just('sh -c "' + command + '"')
+        if not url:
+            continue
+
+        scheme = urlparse(url).scheme
+
+        if input_type == TesTaskIOType.DIRECTORY:
+            if scheme in ('http', 'https', 'ftp'):
+                url_quoted = shlex.quote(url)
+                cmd = (
+                    f"wget --mirror --no-parent --no-host-directories "
+                    f"--directory-prefix={pulsar_path} '{url_quoted}'"
+                )
+            else:
+                raise ValueError(f"Unsupported scheme for directory input: {scheme}")
+        else:
+            cmd = f"curl -o {pulsar_path} '{url}'"
+
+        stage_in_commands.append(cmd)
+
+    if stage_in_commands:
+        full_command = " && ".join(stage_in_commands)
+        command_builder._command = Just(f'sh -c "{full_command}"')
 
     command_builder.with_bind_mount(executor.workdir, bind_mount)
+
     if executor.env:
-        [command_builder.with_env(env_name, env_value)
-         for env_name, env_value in executor.env.items()]
+        for env_name, env_value in executor.env.items():
+            command_builder.with_env(env_name, env_value)
 
     return command_builder.get_run_command()
 
-def docker_stage_out_command(executor: TesTaskExecutor, resource_conf: dict,
-                             output_confs: List[dict], volume_confs: List[dict]) -> str:
-    command_builder = DockerRunCommandBuilder() \
-        .with_image(executor.image) \
-        .with_workdir(executor.workdir) \
+def docker_stage_out_command(
+    executor: TesTaskExecutor,
+    resource_conf: dict,
+    output_confs: List[dict],
+    volume_confs: List[dict]
+) -> str:
+    command_builder = (
+        DockerRunCommandBuilder()
+        .with_image(executor.image)
+        .with_workdir(executor.workdir)
         .with_resource(resource_conf)
-
-    command = ""
+    )
+    stage_out_commands = []
 
     for output in output_confs:
-        command += "curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@" \
-                   + output['container_path'] + "' '" + output['url'] + "' && "
-    command = command[:-3]
+        path = output['container_path']
+        url = output['url']
+        output_type = output.get('type', TesTaskIOType.FILE)
 
-    command_builder._command = Just('sh -c "' + command + '"')
+        if output_type == TesTaskIOType.DIRECTORY:
+            # bash find + curl for recursive upload inside container
+            cmd = (
+                f"base={shlex.quote(path)}; "
+                f"url={shlex.quote(url)}; "
+                f"find \"$base\" -type f -exec sh -c '"
+                f"for filepath do "
+                f"relpath=\"${{filepath#$base/}}\"; "
+                f"curl -X POST -F \"file=@${{filepath}}\" -F \"path=${{relpath}}\" \"$url\"; "
+                f"done' sh {{}} +"
+            )
+            stage_out_commands.append(cmd)
+        else:
+            safe_path = shlex.quote(path)
+            safe_url = shlex.quote(url)
+            cmd = f"curl -X POST -H 'Content-Type: multipart/form-data' -F 'file=@{safe_path}' {safe_url}"
+            stage_out_commands.append(cmd)
+
+    if stage_out_commands:
+        full_command = " && ".join(stage_out_commands)
+        command_builder._command = Just(f"sh -c {shlex.quote(full_command)}")
 
     for volume_conf in volume_confs:
         command_builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
 
     if executor.env:
-        [command_builder.with_env(env_name, env_value)
-         for env_name, env_value in executor.env.items()]
+        for env_name, env_value in executor.env.items():
+            command_builder.with_env(env_name, env_value)
 
     return command_builder.get_run_command()
 
