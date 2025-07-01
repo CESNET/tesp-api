@@ -1,4 +1,5 @@
 import os
+import re
 import shlex
 from urllib.parse import urlparse
 from typing import Dict, List, Tuple
@@ -8,6 +9,9 @@ from pymonad.maybe import Nothing, Maybe, Just
 from tesp_api.repository.model.task import TesTaskExecutor, TesTaskOutput, TesTaskIOType
 from tesp_api.utils.functional import get_else_throw, maybe_of
 
+SHELL_PATTERN = re.compile(
+    r"[|&;<>(){}$*?\"'\\`]"  # shell metacharacters
+)
 
 class DockerRunCommandBuilder:
 
@@ -52,17 +56,52 @@ class DockerRunCommandBuilder:
         self._envs[name] = value
         return self
 
-    def with_command(self, command: List[str], stdin: Maybe[str] = Nothing,
-                     stdout: Maybe[str] = Nothing, stderr: Maybe[str] = Nothing):
-        command_str = " ".join(command)
-        self._command = Just(command_str) if command_str else Nothing
+    def requires_shell(self, command: List[str]) -> bool:
+        return any(
+            isinstance(arg, str) and SHELL_PATTERN.search(arg)
+            for arg in command
+        )
 
-        # sh -c '' # there probably must be ' instead of " because of the passing unresolved envs into the container
-        self._command = self._command.map(lambda _command:
-                                          f'{_command}'
-                                          f'{stdin.maybe("", lambda x: " <" + x)}'
-                                          f'{stdout.maybe("", lambda x: " 1>" + x)}'
-                                          f'{stderr.maybe("", lambda x: " 2>" + x)}')
+    def escape_redirections(self, cmd: str, stdin=None, stdout=None, stderr=None) -> str:
+        redirections = [
+            ('<', stdin),
+            ('>', stdout),
+            ('2>', stderr),
+        ]
+        for op, val in redirections:
+            if isinstance(val, Maybe):
+                val = val.maybe(None, lambda x: None if str(x) == "Nothing" else x)
+            elif str(val) == "Nothing":
+                val = None
+            if val:
+                cmd += f" {op} {shlex.quote(val)}"
+        return cmd
+
+    def with_command(self, command: List[str], stdin=Nothing, stdout=Nothing, stderr=Nothing):
+        if not command:
+            self._command = Nothing
+            return self
+
+        if self.requires_shell(command):
+            shell_cmd = " ".join(map(shlex.quote, map(str, command)))
+            shell_cmd = self.escape_redirections(shell_cmd, stdin, stdout, stderr)
+            self._command = Just(["sh", "-c", shell_cmd])
+        else:
+            # Only for direct commands, sanitize the redirections
+            def maybe_path(val):
+                if isinstance(val, Maybe):
+                    return val.maybe(None, lambda x: None if str(x) == "Nothing" else x)
+                return None if str(val) == "Nothing" else val
+
+            stdin_val = maybe_path(stdin)
+            stdout_val = maybe_path(stdout)
+            stderr_val = maybe_path(stderr)
+
+            cmd = list(map(str, command))
+            redirs = [("<", stdin_val), (">", stdout_val), ("2>", stderr_val)]
+            cmd += [part for op, val in redirs if val for part in (op, val)]
+            self._command = Just(cmd)
+
         return self
 
     def reset(self) -> None:
@@ -75,18 +114,50 @@ class DockerRunCommandBuilder:
         return self
 
     def get_run_command(self) -> str:
-        resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
-                         f'{self._resource_mem.maybe("", lambda mem: " --memory="+str(mem)+"g")}')
-        bind_mounts_str = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._bind_mounts.items()))
-        volumes_str     = " ".join(map(lambda v_paths: f'-v \"{v_paths[1]}\":\"{v_paths[0]}\"', self._volumes.items()))
-        docker_image    = get_else_throw(self._docker_image, ValueError('Docker image is not set'))
-        workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
-        env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
-        command_str = self._command.maybe("", lambda x: x)
+        print("Constructing docker run command...")
 
-        run_command = f'docker run {resources_str} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {docker_image} {command_str}'
+        print("Before maybe(_resource_cpu)")
+        cpu_flag = self._resource_cpu.maybe("", lambda cpu: f"--cpus={cpu}")
+        print("After maybe(_resource_cpu)")
+
+        print("Before maybe(_resource_mem)")
+        mem_flag = self._resource_mem.maybe("", lambda mem: f"--memory={mem}")
+        print("After maybe(_resource_mem)")
+
+        print("Before maybe(_workdir)")
+        workdir_str = self._workdir.maybe("", lambda w: f'-w="{w}"')
+        print("After maybe(_workdir)")
+
+        print("Before maybe(_docker_image)")
+        image = self._docker_image.maybe("", lambda i: i)
+        print("After maybe(_docker_image)")
+
+        bind_mounts_str = " ".join(
+            f'-v "{host}":"{container}"' for container, host in self._bind_mounts.items()
+        )
+        volumes_str = " ".join(
+            f'-v "{host}":"{container}"' for container, host in self._volumes.items()
+        )
+        env_str = " ".join(
+            f'-e {shlex.quote(k)}={shlex.quote(v)}' for k, v in self._envs.items()
+        )
+
+        def quote_command(cmd):
+            print(f"quote_command called with: {cmd} (type: {type(cmd)})")
+            if isinstance(cmd, str):
+                return cmd
+            if isinstance(cmd, list):
+                return " ".join(shlex.quote(arg) for arg in cmd)
+            return ""
+
+        print("Before maybe(_command)")
+        command_str = self._command.maybe("", quote_command)
+        print("After maybe(_command)")
+
+        full_command = f"docker run {cpu_flag} {mem_flag} {workdir_str} {env_str} {volumes_str} {bind_mounts_str} {image} {command_str}".strip()
+
         self.reset()
-        return run_command
+        return full_command
 
     def get_run_command_script(self, inputs_directory: str, i: int) -> Tuple[str, str]:
         resources_str = (f'{self._resource_cpu.maybe("", lambda cpu: " --cpus="+str(cpu))}'
@@ -97,7 +168,7 @@ class DockerRunCommandBuilder:
         workdir_str     = self._workdir.maybe("", lambda workdir: f"-w=\"{str(workdir)}\"")
         volumes_str    += f' -v "{inputs_directory}/run_script_{i}.sh":"/tmp/{self._job_id}/run_script_{i}.sh"'
         env_str         = " ".join(map(lambda env: f'-e {env[0]}=\"{env[1]}\"', self._envs.items()))
-        command_str = self._command.maybe("", lambda x: x)
+        command_str = maybe_of(self._command).maybe("", lambda x: " ".join(shlex.quote(arg) for arg in x))
 
         chmod_commands = f"chmod +x /tmp/{self._job_id}/run_script_{i}.sh"
         if self._bind_mounts:
@@ -140,7 +211,7 @@ def docker_run_command(executor: TesTaskExecutor, job_id: str, resource_conf: di
     [command_builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
      for input_conf in input_confs]
 
-    return command_builder.get_run_command_script(inputs_directory, i)
+    return command_builder.get_run_command() # _script(inputs_directory, i)
 
 def docker_stage_in_command(
     executor: TesTaskExecutor,
@@ -211,17 +282,17 @@ def docker_stage_out_command(
         path = output['container_path']
         url = output['url']
         output_type = output.get('type', TesTaskIOType.FILE)
+        print(f"Staging out: {path} -> {url} (type: {output_type})")
 
         if output_type == TesTaskIOType.DIRECTORY:
             # bash find + curl for recursive upload inside container
             cmd = (
                 f"base={shlex.quote(path)}; "
                 f"url={shlex.quote(url)}; "
-                f"find \"$base\" -type f -exec sh -c '"
-                f"for filepath do "
+                f"find \"$base\" -type f | while read -r filepath; do "
                 f"relpath=\"${{filepath#$base/}}\"; "
-                f"curl -X POST -F \"file=@${{filepath}}\" -F \"path=${{relpath}}\" \"$url\"; "
-                f"done' sh {{}} +"
+                f"curl -X POST -F \"file=@${{filepath}};filename=${{relpath}}\" \"$url\"; "
+                f"done"
             )
             stage_out_commands.append(cmd)
         else:
@@ -264,7 +335,8 @@ def map_volumes(job_id: str, volumes: List[str], outputs: List[TesTaskOutput]):
         output_confs.append({
             'container_path': output.path,
             'url': output.url,
-            'volume_name': volume_name
+            'volume_name': volume_name,
+            'type': output.type
         })
 
     for v in volumes:

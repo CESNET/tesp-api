@@ -182,10 +182,10 @@ async def handle_run_task(event: Event) -> None:
             stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
 
         # container_cmds.append(stage_in_command)
-
+        print("Buidling commands")
         for i, executor in enumerate(task.executors):
             if CONTAINER_TYPE == "docker":
-                run_command, script_content = docker_run_command(executor, task_id, resource_conf, volume_confs,
+                run_command = docker_run_command(executor, task_id, resource_conf, volume_confs,
                                                                  input_confs, output_confs, stage_in_mount, i)
             elif CONTAINER_TYPE == "singularity":
                 mount_job_dir = payload['task_config']['job_directory']
@@ -193,10 +193,10 @@ async def handle_run_task(event: Event) -> None:
                                                                  input_confs, output_confs, stage_in_mount, mount_job_dir, i)
 
 
-            await pulsar_operations.upload(
-                payload['task_id'], DataType.INPUT,
-                file_content=Just(script_content),
-                file_path=f'run_script_{i}.sh')
+           # await pulsar_operations.upload(
+           #     payload['task_id'], DataType.INPUT,
+           #     file_content=Just(script_content),
+           #     file_path=f'run_script_{i}.sh')
             container_cmds.append(run_command)
 
         if CONTAINER_TYPE == "docker":
@@ -209,9 +209,9 @@ async def handle_run_task(event: Event) -> None:
 
         # Join all commands with " && "
         run_commands = " && ".join(container_cmds)
-
-        run_command = (f"""set -xe && {stage_in_command} && {run_commands} && {stage_out_command}""")
-
+        parts = ["set -xe", stage_in_command, run_commands, stage_out_command]
+        non_empty_parts = [p.strip() for p in parts if p and p.strip()]
+        run_command = " && ".join(non_empty_parts)
         print(run_command)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
