@@ -56,6 +56,14 @@ class DockerRunCommandBuilder:
         self._envs[name] = value
         return self
 
+    def _is_shell_wrapped(self, command) -> bool:
+        if isinstance(command, list):
+            if len(command) >= 2 and all(isinstance(part, str) for part in command[:2]):
+                return command[0] == "sh" and command[1] == "-c"
+        elif isinstance(command, str):
+            return command.startswith("sh -c ")
+        return False
+
     def requires_shell(self, command: List[str]) -> bool:
         return any(
             isinstance(arg, str) and SHELL_PATTERN.search(arg)
@@ -77,17 +85,29 @@ class DockerRunCommandBuilder:
                 cmd += f" {op} {shlex.quote(val)}"
         return cmd
 
-    def with_command(self, command: List[str], stdin=Nothing, stdout=Nothing, stderr=Nothing):
+    def with_command(self, command, stdin=Nothing, stdout=Nothing, stderr=Nothing):
         if not command:
             self._command = Nothing
             return self
 
+        if self._is_shell_wrapped(command):
+            # If command is a string, split into list form before assigning
+            if isinstance(command, str):
+                parts = command.split(" ", 2)
+                if len(parts) < 3:
+                    raise ValueError(f"Malformed shell command string: {command}")
+                self._command = Just(parts)
+            else:
+                self._command = Just(command)
+            return self
+
+        # If command needs shell (but not already wrapped), wrap it
         if self.requires_shell(command):
             shell_cmd = " ".join(map(shlex.quote, map(str, command)))
             shell_cmd = self.escape_redirections(shell_cmd, stdin, stdout, stderr)
             self._command = Just(["sh", "-c", shell_cmd])
         else:
-            # Only for direct commands, sanitize the redirections
+            # Direct command with sanitized redirections
             def maybe_path(val):
                 if isinstance(val, Maybe):
                     return val.maybe(None, lambda x: None if str(x) == "Nothing" else x)

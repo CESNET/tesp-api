@@ -165,49 +165,53 @@ async def handle_run_task(event: Event) -> None:
             start_time=Just(datetime.datetime.now(datetime.timezone.utc))
         )
 
-        # prepare docker commands
         container_cmds = list()
-        # stage-in
-        print("Payload:")
-        print(payload)
-        stage_in_mount = payload['task_config']['inputs_directory']
         stage_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest",
-                                        command=[],
-                                        workdir=Path("/downloads"))
+                                         command=[],
+                                         workdir=Path("/downloads"))
+        # stage-in
+        stage_in_command = ""
 
-        if CONTAINER_TYPE == "docker":
-            stage_in_command = docker_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
-        elif CONTAINER_TYPE == "singularity":
-            stage_exec.image = "docker://" + stage_exec.image
-            stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
+        print(stage_exec)
+        if input_confs:  # Only generate stage-in command if inputs exist
+            print("Preparing stage-in command")
+            stage_in_mount = payload['task_config']['inputs_directory']
 
-        # container_cmds.append(stage_in_command)
-        print("Buidling commands")
+            if CONTAINER_TYPE == "docker":
+                stage_in_command = docker_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
+            elif CONTAINER_TYPE == "singularity":
+                stage_exec.image = "docker://" + stage_exec.image
+                stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
+
+        # main executors
+        print("Building commands")
+        print(stage_exec)
         for i, executor in enumerate(task.executors):
             if CONTAINER_TYPE == "docker":
                 run_command = docker_run_command(executor, task_id, resource_conf, volume_confs,
-                                                                 input_confs, output_confs, stage_in_mount, i)
+                                                 input_confs, output_confs, stage_in_mount if input_confs else "", i)
             elif CONTAINER_TYPE == "singularity":
                 mount_job_dir = payload['task_config']['job_directory']
                 run_command, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
-                                                                 input_confs, output_confs, stage_in_mount, mount_job_dir, i)
+                                                                       input_confs, output_confs,
+                                                                       stage_in_mount if input_confs else "",
+                                                                       mount_job_dir, i)
 
-
-           # await pulsar_operations.upload(
-           #     payload['task_id'], DataType.INPUT,
-           #     file_content=Just(script_content),
-           #     file_path=f'run_script_{i}.sh')
             container_cmds.append(run_command)
 
-        if CONTAINER_TYPE == "docker":
-            stage_out_command = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
-        elif CONTAINER_TYPE == "singularity":
-            mount_job_dir = payload['task_config']['job_directory']
-            bind_mount = payload['task_config']['inputs_directory']
-            stage_out_command = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
-                                                              output_confs, volume_confs, mount_job_dir)
-
-        # Join all commands with " && "
+        print(stage_exec)
+        # stage-out
+        stage_out_command = ""
+        if output_confs:  # Only generate stage-out command if outputs exist
+            print("Preparing stage-out command")
+            if CONTAINER_TYPE == "docker":
+                stage_out_command = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
+            elif CONTAINER_TYPE == "singularity":
+                mount_job_dir = payload['task_config']['job_directory']
+                bind_mount = payload['task_config']['inputs_directory']
+                stage_out_command = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
+                                                                  output_confs, volume_confs, mount_job_dir)
+        
         run_commands = " && ".join(container_cmds)
         parts = ["set -xe", stage_in_command, run_commands, stage_out_command]
         non_empty_parts = [p.strip() for p in parts if p and p.strip()]
