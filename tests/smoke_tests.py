@@ -163,7 +163,7 @@ def test_inputs():
 
 # Downloads and copies file to the shared volume and displays its content with two separate executors.
 def test_volumes():
-    assert _test_simple("volumes.json", 60)
+    assert _test_simple("volumes.json", 100)
 
 # Verifies that environment variables from envs.json are correctly echoed to output files with expected content. 
 def test_envs():

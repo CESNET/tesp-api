@@ -7,17 +7,18 @@ from pymonad.maybe import Just
 from bson.objectid import ObjectId
 from pymonad.promise import Promise
 
-from tesp_api.utils.docker import (
-    docker_run_command,
-    docker_stage_in_command,
-    docker_stage_out_command,
-    map_volumes
-)
-from tesp_api.utils.singularity import (
-    singularity_run_command,
-    singularity_stage_in_command,
-    singularity_stage_out_command
-)
+#from tesp_api.utils.docker import (
+#    docker_run_command,
+#    docker_stage_in_command,
+#    docker_stage_out_command,
+#    map_volumes
+#)
+#from tesp_api.utils.singularity import (
+#    singularity_run_command,
+#    singularity_stage_in_command,
+#    singularity_stage_out_command
+#)
+from tesp_api.utils.container import stage_in_command, run_command, stage_out_command, map_volumes
 from tesp_api.service.pulsar_service import pulsar_service
 from tesp_api.service.event_dispatcher import dispatch_event
 from tesp_api.utils.functional import get_else_throw, maybe_of
@@ -36,7 +37,7 @@ from tesp_api.repository.model.task import (
 )
 from tesp_api.repository.task_repository_utils import append_task_executor_logs, update_last_task_log_time
 
-CONTAINER_TYPE = os.getenv("CONTAINER_TYPE", "both")
+CONTAINER_TYPE = os.getenv("CONTAINER_TYPE", "docker")
 
 
 @local_handler.register(event_name="queued_task")
@@ -170,58 +171,58 @@ async def handle_run_task(event: Event) -> None:
                                          command=[],
                                          workdir=Path("/downloads"))
         # stage-in
-        stage_in_command = ""
-
-        print(stage_exec)
-        if input_confs:  # Only generate stage-in command if inputs exist
-            print("Preparing stage-in command")
+        stage_in_cmd = ""
+        if input_confs:
             stage_in_mount = payload['task_config']['inputs_directory']
+            stage_in_cmd = stage_in_command(
+                stage_exec,
+                resource_conf,
+                stage_in_mount,
+                input_confs,
+                CONTAINER_TYPE
+            )
 
-            if CONTAINER_TYPE == "docker":
-                stage_in_command = docker_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
-            elif CONTAINER_TYPE == "singularity":
-                stage_exec.image = "docker://" + stage_exec.image
-                stage_in_command = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
-
-        # main executors
-        print("Building commands")
-        print(stage_exec)
+        # main execution
+        container_cmds = []
         for i, executor in enumerate(task.executors):
-            if CONTAINER_TYPE == "docker":
-                run_command = docker_run_command(executor, task_id, resource_conf, volume_confs,
-                                                 input_confs, output_confs, stage_in_mount if input_confs else "", i)
-            elif CONTAINER_TYPE == "singularity":
-                mount_job_dir = payload['task_config']['job_directory']
-                run_command, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
-                                                                       input_confs, output_confs,
-                                                                       stage_in_mount if input_confs else "",
-                                                                       mount_job_dir, i)
+            run_cmd = run_command(
+                executor=executor,
+                job_id=task_id,
+                resource_conf=resource_conf,
+                volume_confs=volume_confs,
+                input_confs=input_confs,
+                output_confs=output_confs,
+                inputs_directory=stage_in_mount if input_confs else "",
+                container_type=CONTAINER_TYPE,
+                job_directory=payload['task_config']['job_directory'] if CONTAINER_TYPE == "singularity" else None,
+                executor_index=i
+            )
+            container_cmds.append(run_cmd)
 
-            container_cmds.append(run_command)
-
-        print(stage_exec)
         # stage-out
-        stage_out_command = ""
-        if output_confs:  # Only generate stage-out command if outputs exist
-            print("Preparing stage-out command")
-            if CONTAINER_TYPE == "docker":
-                stage_out_command = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
-            elif CONTAINER_TYPE == "singularity":
-                mount_job_dir = payload['task_config']['job_directory']
-                bind_mount = payload['task_config']['inputs_directory']
-                stage_out_command = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
-                                                                  output_confs, volume_confs, mount_job_dir)
-        
+        stage_out_cmd = ""
+        if output_confs:
+            stage_out_cmd = stage_out_command(
+                stage_exec,
+                resource_conf,
+                output_confs,
+                volume_confs,
+                container_type=CONTAINER_TYPE,
+                bind_mount=payload['task_config']['inputs_directory'] if CONTAINER_TYPE == "singularity" else None,
+                job_directory=payload['task_config']['job_directory'] if CONTAINER_TYPE == "singularity" else None
+            )
+
+        # Combine commands
         run_commands = " && ".join(container_cmds)
-        parts = ["set -xe", stage_in_command, run_commands, stage_out_command]
+        parts = ["set -xe", stage_in_cmd, run_commands, stage_out_cmd]
         non_empty_parts = [p.strip() for p in parts if p and p.strip()]
-        run_command = " && ".join(non_empty_parts)
-        print(run_command)
+        full_command = " && ".join(non_empty_parts)
+        print(full_command)
 
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
 
         # start the task (docker container/s) in the pulsar
-        await pulsar_operations.run_job(task_id, run_command)
+        await pulsar_operations.run_job(task_id, full_command)
 
         # wait for the task
         command_status = await pulsar_operations.job_status_complete(str(task_id))
