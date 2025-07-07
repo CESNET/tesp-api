@@ -2,22 +2,9 @@ import os
 import datetime
 from typing import List
 from pathlib import Path
-
 from pymonad.maybe import Just
 from bson.objectid import ObjectId
 from pymonad.promise import Promise
-
-#from tesp_api.utils.docker import (
-#    docker_run_command,
-#    docker_stage_in_command,
-#    docker_stage_out_command,
-#    map_volumes
-#)
-#from tesp_api.utils.singularity import (
-#    singularity_run_command,
-#    singularity_stage_in_command,
-#    singularity_stage_out_command
-#)
 from tesp_api.utils.container import stage_in_command, run_command, stage_out_command, map_volumes
 from tesp_api.service.pulsar_service import pulsar_service
 from tesp_api.service.event_dispatcher import dispatch_event
@@ -136,7 +123,7 @@ async def handle_initializing_task(event: Event) -> None:
             'input_confs': res_input_output_confs[2],
             'output_confs': res_input_output_confs[3]
         })).catch(lambda error: pulsar_event_handle_error(error, task_id, event_name, pulsar_operations))\
-        .then(lambda x: x)  # invokes promise returned by error handler, otherwise acts as identity function
+        .then(lambda x: x)
 
 
 @local_handler.register(event_name="run_task")
