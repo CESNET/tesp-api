@@ -106,7 +106,7 @@ async def get_tasks(
 async def cancel_task(
         id: str,
         token_subject: str = Depends(parse_verify_token),
-        ) -> Response: # Return type is still Response, JSONResponse is a subclass
+        ) -> Response:
     return await Promise(lambda resolve, reject: resolve((
             maybe_of(token_subject),
             ObjectId(id)
