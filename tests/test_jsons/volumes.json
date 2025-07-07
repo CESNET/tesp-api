@@ -1,26 +1,29 @@
 {
-    "inputs": [
-        {
-            "path": "/data/file_http",
-            "url": "http://172.17.0.1:5000/download/test.txt",
-            "type": "FILE"
-        }
-    ],
-    "volumes": [
-        "/vol/"
-    ],
-    "executors":[
-        {
-            "image":"ubuntu",
-            "command":[
-                "cp", "/data/file_http", "/vol/", "&&", "cat", "/vol/file_http"
-            ]
-        },
-        {
-            "image":"ubuntu",
-            "command":[
-                "cat", "/vol/file_http"
-            ]
-        }
-    ]
+  "inputs": [
+    {
+      "path": "/data/file_http",
+      "url": "http://172.17.0.1:5000/download/test.txt",
+      "type": "FILE"
+    }
+  ],
+  "volumes": [
+    "/vol/"
+  ],
+  "executors": [
+    {
+      "image": "ubuntu",
+      "command": [
+        "sh",
+        "-c",
+        "cp /data/file_http /vol/ && cat /vol/file_http"
+      ]
+    },
+    {
+      "image": "ubuntu",
+      "command": [
+        "cat",
+        "/vol/file_http"
+      ]
+    }
+  ]
 }
