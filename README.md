@@ -18,20 +18,19 @@ standard and distributing `TES` tasks execution to `Pulsar` applications.
 ### Deploy
 The most straightforward way to deploy the TESP is to use Docker Compose.
 
-#### All services (default):
+#### API and DB (default):
 ```
-docker compose --profile all up -d
+docker compose up -d
 ```
+Expecting exetrnal [Pulsar](https://github.com/galaxyproject/pulsar) configured in `settings.toml` before the compose is run.
+So far only REST Pulsar communication is supported.
 
-#### Without pulsar_rest service:
-```
-docker compose --profile api up -d
-```
-
-#### Only pulsar_rest service:
+#### And pulsar_rest service:
 ```
 docker compose --profile pulsar up -d
 ```
+
+
 <br />
 <br />
 <br />
