@@ -2,7 +2,7 @@
 # See https://docs.docker.com/develop/develop-images/multistage-build/
 
 # Environment variables and base image
-FROM python:3.10-slim-buster as python-base
+FROM python:3.10-slim-bullseye as python-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
