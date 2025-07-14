@@ -8,17 +8,7 @@ from pymonad.maybe import Just, Nothing
 from bson.objectid import ObjectId
 from pymonad.promise import Promise, _Promise
 
-from tesp_api.utils.docker import (
-    docker_run_command,
-    docker_stage_in_command,
-    docker_stage_out_command,
-    map_volumes
-)
-from tesp_api.utils.singularity import (
-    singularity_run_command,
-    singularity_stage_in_command,
-    singularity_stage_out_command
-)
+from tesp_api.utils.container import stage_in_command, run_command, stage_out_command, map_volumes
 from tesp_api.service.pulsar_service import pulsar_service
 from tesp_api.service.event_dispatcher import dispatch_event
 from tesp_api.utils.functional import get_else_throw, maybe_of
@@ -32,11 +22,12 @@ from tesp_api.repository.model.task import (
     TesTaskExecutor,
     TesTaskResources,
     TesTaskInput,
-    TesTaskOutput
+    TesTaskOutput,
+    TesTaskIOType
 )
 from tesp_api.repository.task_repository_utils import append_task_executor_logs, update_last_task_log_time
 
-CONTAINER_TYPE = os.getenv("CONTAINER_TYPE", "both")
+CONTAINER_TYPE = os.getenv("CONTAINER_TYPE", "docker")
 
 @local_handler.register(event_name="queued_task")
 def handle_queued_task(event: Event) -> None:
@@ -78,6 +69,7 @@ async def handle_initializing_task(event: Event) -> None:
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
+    # Merged Logic: Using the feature-complete setup_data from the new version
     async def setup_data(job_id: ObjectId,
             resources: TesTaskResources,
             volumes: List[str],
@@ -95,15 +87,24 @@ async def handle_initializing_task(event: Event) -> None:
 
         output_confs, volume_confs = map_volumes(str(job_id), volumes, outputs)
 
-        for i, tes_input in enumerate(inputs):
-            content = tes_input.content
-            pulsar_path_val = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
-            if content is not None and tes_input.url is None:
-                pulsar_path_val = await pulsar_operations.upload(
+        for i, input_item in enumerate(inputs):
+            if input_item.type == TesTaskIOType.DIRECTORY:
+                pulsar_path = payload['task_config']['inputs_directory'] + f'/input_dir_{i}'
+            elif input_item.content is not None and input_item.url is None:
+                pulsar_path = await pulsar_operations.upload(
                     job_id, DataType.INPUT,
-                    file_content=Just(content),
-                    file_path=f'input_file_{i}')
-            input_confs.append({'container_path': tes_input.path, 'pulsar_path': pulsar_path_val, 'url': tes_input.url})
+                    file_content=Just(input_item.content),
+                    file_path=f'input_file_{i}'
+                )
+            else:
+                pulsar_path = payload['task_config']['inputs_directory'] + f'/input_file_{i}'
+
+            input_confs.append({
+                'container_path': input_item.path,
+                'pulsar_path': pulsar_path,
+                'url': input_item.url,
+                'type': input_item.type
+            })
 
         return resource_conf, volume_confs, input_confs, output_confs
 
@@ -159,12 +160,12 @@ async def handle_run_task(event: Event) -> None:
         )
         task = get_else_throw(task_monad_init, TaskNotFoundError(task_id, Just(TesTaskState.INITIALIZING)))
 
-        # Early check: If task was cancelled very quickly after being set to RUNNING
+        # Early check for cancellation
         current_task_after_init_monad = await task_repository.get_task(maybe_of(author), {'_id': task_id})
         current_task_after_init = get_else_throw(current_task_after_init_monad, TaskNotFoundError(task_id))
         if current_task_after_init.state == TesTaskState.CANCELED:
             print(f"Task {task_id} found CANCELED shortly after RUNNING state update. Aborting handler.")
-            return # API cancel path handles Pulsar cleanup
+            return
 
         await update_last_task_log_time(
             task_id,
@@ -173,49 +174,44 @@ async def handle_run_task(event: Event) -> None:
             start_time=Just(datetime.datetime.now(datetime.timezone.utc))
         )
 
-        # Prepare Pulsar commands
-        container_cmds = list()
-        stage_in_mount = payload['task_config']['inputs_directory']
         stage_exec = TesTaskExecutor(image="willdockerhub/curl-wget:latest", command=[], workdir=Path("/downloads"))
         
-        stage_in_command_str_val = None
-        if CONTAINER_TYPE == "docker":
-            stage_in_command_str_val = docker_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
-        elif CONTAINER_TYPE == "singularity":
-            stage_exec.image = "docker://" + stage_exec.image # Singularity needs "docker://" prefix
-            stage_in_command_str_val = singularity_stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs)
+        # Stage-in command
+        stage_in_cmd = ""
+        stage_in_mount = ""
+        if input_confs:
+            stage_in_mount = payload['task_config']['inputs_directory']
+            stage_in_cmd = stage_in_command(stage_exec, resource_conf, stage_in_mount, input_confs, CONTAINER_TYPE)
 
+        # Main execution commands
+        container_cmds = []
         for i, executor in enumerate(task.executors):
-            run_script_cmd_str, script_content = "", ""
-            if CONTAINER_TYPE == "docker":
-                run_script_cmd_str, script_content = docker_run_command(executor, task_id, resource_conf, volume_confs,
-                                                                 input_confs, output_confs, stage_in_mount, i)
-            elif CONTAINER_TYPE == "singularity":
-                mount_job_dir = payload['task_config']['job_directory']
-                run_script_cmd_str, script_content = singularity_run_command(executor, task_id, resource_conf, volume_confs,
-                                                                 input_confs, output_confs, stage_in_mount, mount_job_dir, i)
+            run_cmd = run_command(
+                executor=executor, job_id=str(task_id), resource_conf=resource_conf,
+                volume_confs=volume_confs, input_confs=input_confs, output_confs=output_confs,
+                inputs_directory=stage_in_mount, container_type=CONTAINER_TYPE,
+                job_directory=payload['task_config'].get('job_directory') if CONTAINER_TYPE == "singularity" else None,
+                executor_index=i
+            )
+            container_cmds.append(run_cmd)
 
-            await pulsar_operations.upload(
-                task_id, DataType.INPUT, # Use task_id from payload, not payload['task_id']
-                file_content=Just(script_content),
-                file_path=f'run_script_{i}.sh')
-            container_cmds.append(run_script_cmd_str)
-        
-        stage_out_command_str_val = None
-        if CONTAINER_TYPE == "docker":
-            stage_out_command_str_val = docker_stage_out_command(stage_exec, resource_conf, output_confs, volume_confs)
-        elif CONTAINER_TYPE == "singularity":
-            mount_job_dir = payload['task_config']['job_directory']
-            bind_mount = payload['task_config']['inputs_directory'] # This might be stage_in_mount too
-            stage_out_command_str_val = singularity_stage_out_command(stage_exec, resource_conf, bind_mount,
-                                                              output_confs, volume_confs, mount_job_dir)
+        # Stage-out command
+        stage_out_cmd = ""
+        if output_confs:
+            stage_out_cmd = stage_out_command(
+                stage_exec, resource_conf, output_confs, volume_confs,
+                container_type=CONTAINER_TYPE,
+                bind_mount=payload['task_config'].get('inputs_directory') if CONTAINER_TYPE == "singularity" else None,
+                job_directory=payload['task_config'].get('job_directory') if CONTAINER_TYPE == "singularity" else None
+            )
 
+        # Combine all commands into a single string for Pulsar
         executors_commands_joined_str = " && ".join(filter(None, container_cmds))
-        
-        # Construct the final command string for Pulsar
-        command_list_for_join = [cmd for cmd in [stage_in_command_str_val, executors_commands_joined_str, stage_out_command_str_val] if cmd and cmd.strip()]
-        run_command_str = f"set -xe && {' && '.join(command_list_for_join)}" if command_list_for_join else None
+        parts = ["set -xe", stage_in_cmd, executors_commands_joined_str, stage_out_cmd]
+        non_empty_parts = [p.strip() for p in parts if p and p.strip()]
+        run_command_str = " && ".join(non_empty_parts) if non_empty_parts else None
 
+        # Resume with the polished version's logic for execution and state management
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
         command_status: dict
 
@@ -225,7 +221,7 @@ async def handle_run_task(event: Event) -> None:
         else:
             print(f"Submitting job to Pulsar for task {task_id}: {run_command_str}")
             await pulsar_operations.run_job(task_id, run_command_str)
-            command_status = await pulsar_operations.job_status_complete(str(task_id)) # Polls Pulsar for job completion
+            command_status = await pulsar_operations.job_status_complete(str(task_id))
 
         command_end_time = datetime.datetime.now(datetime.timezone.utc)
         await append_task_executor_logs(
@@ -235,7 +231,6 @@ async def handle_run_task(event: Event) -> None:
             command_status.get('returncode', -1)
         )
 
-        # Re-fetch task state to check for external cancellation during job execution
         current_task_monad = await task_repository.get_task(maybe_of(author), {'_id': task_id}) 
         current_task_obj = get_else_throw(current_task_monad, TaskNotFoundError(task_id)) 
 
@@ -249,7 +244,6 @@ async def handle_run_task(event: Event) -> None:
             await pulsar_operations.erase_job(task_id)
             return 
 
-        # Job successful and not cancelled, set to COMPLETE
         print(f"Task {task_id} completed successfully. Setting state to COMPLETE.")
         await Promise(lambda resolve, reject: resolve(None)) \
             .then(lambda ignored: task_repository.update_task_state(
@@ -263,7 +257,6 @@ async def handle_run_task(event: Event) -> None:
             .then(lambda x: x)
 
     except asyncio.CancelledError:
-        # This asyncio.Task (handle_run_task) was cancelled externally
         print(f"handle_run_task for task {task_id} was explicitly cancelled (asyncio.CancelledError).")
         await task_repository.update_task_state(task_id, None, TesTaskState.CANCELED)
         await pulsar_operations.kill_job(task_id)
@@ -278,7 +271,6 @@ async def handle_run_task(event: Event) -> None:
             print(f"Task {task_id} is already CANCELED. Exception '{type(error).__name__}' likely due to this. No further error processing by handler.")
             return 
 
-        # If not already CANCELED, proceed with standard error handling
         print(f"Task {task_id} not CANCELED; proceeding with pulsar_event_handle_error for '{type(error).__name__}'.")
         error_handler_result = pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
         if asyncio.iscoroutine(error_handler_result) or isinstance(error_handler_result, _Promise):
