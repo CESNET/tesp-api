@@ -24,9 +24,9 @@ jobs:
         run: |
           docker compose --profile pulsar up -d --build
 
-      - name: run docker compose dts
+      - name: run upload_server.py
         run: |
-          docker compose -f docker/dts/docker-compose.yaml up -d
+          python upload_server.py
 
       - name: instal pytest
         run: pip install pytest
