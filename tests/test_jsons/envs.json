@@ -1,12 +1,12 @@
 {
   "outputs": [
     {
-      "path": "/tesp-api/tests/test_data/env_test_1",
+      "path": "/tesp-api/tests/uploaded_data/env_test_1",
       "url": "http://172.17.0.1:5000/upload",
       "type": "FILE"
     },
     {
-      "path": "/tesp-api/tests/test_data/env_test_2",
+      "path": "/tesp-api/tests/uploaded_data/env_test_2",
       "url": "http://172.17.0.1:5000/upload",
       "type": "FILE"
     }
@@ -17,7 +17,7 @@
       "command": [
         "sh",
         "-c",
-        "echo \"$TEST_FILE\" > /tesp-api/tests/test_data/env_test_1 && echo \"$TEST_FILE_2\" > /tesp-api/tests/test_data/env_test_2"
+        "echo \"$TEST_FILE\" > /tesp-api/tests/uploaded_data/env_test_1 && echo \"$TEST_FILE_2\" > /tesp-api/tests/uploaded_data/env_test_2"
       ],
       "env": {
         "TEST_FILE": "first upload successful",
