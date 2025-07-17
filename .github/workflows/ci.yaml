@@ -22,11 +22,14 @@ jobs:
 
       - name: run docker compose
         run: |
-          docker compose up -d --build
+          docker compose --profile pulsar up -d --build
 
-      - name: run docker compose dts
+      - name: install flask
+        run: pip install flask
+
+      - name: run upload_server.py
         run: |
-          docker compose -f docker/dts/docker-compose.yaml up -d
+          python tests/upload_server.py &
 
       - name: instal pytest
         run: pip install pytest
