@@ -26,7 +26,7 @@ jobs:
 
       - name: run upload_server.py
         run: |
-          python upload_server.py
+          python tests/upload_server.py
 
       - name: instal pytest
         run: pip install pytest
