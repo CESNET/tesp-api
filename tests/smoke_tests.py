@@ -4,6 +4,10 @@ import requests
 import json
 import os
 
+import pytest
+import shutil
+import subprocess
+
 import sys
 sys.path.append('/app')
 
@@ -156,6 +160,10 @@ def test_get_task_list():
 def test_inputs():
     assert _test_simple("inputs.json", 120)
 
+# Test directory as an input.
+def test_dir_input():
+    assert _test_simple("dir-io.json", 120)
+
 #def test_outputs():
     # Tests S3 and FTP upload and download.
     #jsons = ["outputs-prepare", "outputs-prepare-check", "outputs-test", "outputs-test-check"]
@@ -170,13 +178,13 @@ def test_envs():
     assert _test_simple("envs.json", 100)
     
     expected_files = {
-        f"{script_directory}/test_data/env_test_1": "first upload successful\n",
-        f"{script_directory}/test_data/env_test_2": "second upload successful\n"
+        f"{script_directory}/uploaded_data/env_test_1": "first upload successful\n",
+        f"{script_directory}/uploaded_data/env_test_2": "second upload successful\n"
     }
     
     # Verify that each file was created with the expected content
     for path, expected_content in expected_files.items():
-        # Open the file and read its content (if accessible in the current environment)
+        # Open the file and read its content
         with open(path, 'r') as f:
             content = f.read()
         assert content == expected_content, f"File {path} does not contain the expected content."
@@ -207,20 +215,42 @@ def test_task_cancel():
 
 # Checks whether given task exceeds available resources.
 def test_resource_check_with_limits():
-    # Load the JSON file
     json_data = _open_json('resource_check.json')
 
-    # Extract CPU cores and RAM values
     cpu_cores = _gnv(json_data, "resources.cpu_cores")
     ram_gb = _gnv(json_data, "resources.ram_gb")
 
-    # Define the maximum limits
     max_cpu_cores = 4
     max_ram_gb = 3.8
 
-    # Perform the checks with limits
     assert cpu_cores <= max_cpu_cores, f"CPU cores exceed the limit: {cpu_cores} > {max_cpu_cores}"
     assert ram_gb <= max_ram_gb, f"RAM exceeds the limit: {ram_gb} > {max_ram_gb}"
 
     print(f"Requested resources: CPU cores = {cpu_cores}, RAM = {ram_gb} GB (Limits: {max_cpu_cores} cores, {max_ram_gb} GB RAM)")
+
+# Remove uploaded_data directory
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_uploaded_data():
+    yield  # Wait until all tests are done
+
+    uploaded_path = os.path.join(os.path.dirname(__file__), "uploaded_data")
+    if os.path.isdir(uploaded_path):
+        try:
+            shutil.rmtree(uploaded_path)
+            print(f"Removed uploaded data: {uploaded_path}")
+        except Exception as e:
+            print(f"Failed to remove {uploaded_path}: {e}")
+
+    # container clean up
+    try:
+        output = subprocess.check_output([
+            "docker", "ps", "-q", "--filter", "ancestor=ubuntu", "--filter", "status=running"
+        ]).decode().strip().splitlines()
+
+        for container_id in output:
+            subprocess.run(["docker", "rm", "-f", container_id])
+            print(f"Removed container: {container_id}")
+    except Exception as e:
+        print(f"Failed to remove sleep containers: {e}")
+
 

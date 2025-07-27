@@ -5,7 +5,7 @@ from bson.objectid import ObjectId
 from pymonad.promise import Promise
 from fastapi.params import Depends
 from fastapi import APIRouter, Body
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 
 from tesp_api.api.error import api_handle_error
 from tesp_api.service.event_dispatcher import dispatch_event
@@ -111,7 +111,10 @@ async def cancel_task(
             maybe_of(token_subject),
             ObjectId(id)
     ))).then(lambda get_tasks_args: task_repository.cancel_task(*get_tasks_args))\
-        .map(lambda task_id: Response(status_code=200, media_type="application/json"))\
+        .map(lambda task_id_maybe: 
+             # Use JSONResponse to ensure the body is "{}"
+             JSONResponse(content={}, status_code=200)
+        )\
         .catch(api_handle_error)
 
 
@@ -119,7 +122,7 @@ async def cancel_task(
             responses={200: {"description": "Ok"}},
             description=descriptions["service-info"],
             response_model=TesServiceInfo)
-async def get_service_info() -> TesServiceInfo:
+async def get_service_info() -> TesServiceInfo: # FastAPI directly handles Pydantic model return
     return TesServiceInfo(
         id="fi.muni.cz.tesp",
         name="TESP",

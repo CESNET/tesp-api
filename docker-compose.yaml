@@ -39,15 +39,13 @@ services:
       dockerfile: Dockerfile
       target: development
     image: pulsar_rest
+    profiles: ["pulsar"]
     container_name: pulsar-rest
     privileged: true
     expose:
       - "8913"
     volumes:
       - ./docker/pulsar_rest/app.yml:/opt/pysetup/app.yml
-# DIND - problem with resource limitation, missing cgroups inside
-#      - ./docker/pulsar_rest/data/:/opt/pysetup/files/staging/
-# DOOD
       - /opt/pysetup/files/staging/:/opt/pysetup/files/staging/
       - /var/run/docker.sock:/var/run/docker.sock
 
