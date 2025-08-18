@@ -47,8 +47,16 @@ class ContainerCommandBuilder:
         return self
 
     def with_image(self, image: str):
-        if self.container_type == "singularity" and not image.startswith("docker://"):
-            self._image = Just(f"docker://{image}")
+        if self.container_type == "singularity":
+            # If it's an absolute path, use as-is
+            if os.path.isabs(image):
+                self._image = Just(image)
+            # If it's already got a URI scheme, use as-is
+            elif image.startswith(("docker://", "library://", "shub://", "oras://")):
+                self._image = Just(image)
+            # Otherwise, assume Docker Hub reference
+            else:
+                self._image = Just(f"docker://{image}")
         else:
             self._image = Just(image)
         return self
@@ -149,11 +157,11 @@ class ContainerCommandBuilder:
 
     def get_run_command(self) -> str:
         # Common resource flags
-        cpu_flag = self._resource_cpu.maybe("", lambda cpu: 
-            f"--cpus={cpu}" if self.container_type == "docker" else f"--cpu={cpu}")
-        
-        mem_flag = self._resource_mem.maybe("", lambda mem: 
-            f"--memory={mem}g" if self.container_type == "docker" else f"--memory={mem}G")
+        cpu_flag = self._resource_cpu.maybe("", lambda cpu:
+        f"--cpus={cpu}" if self.container_type == "docker" else f"--cpu={cpu}")
+
+        mem_flag = self._resource_mem.maybe("", lambda mem:
+        f"--memory={mem}g" if self.container_type == "docker" else f"--memory={mem}G")
 
         # Environment variables
         env_flags = []
@@ -164,14 +172,15 @@ class ContainerCommandBuilder:
                 env_flags.append(f'--env {k}="{v}"')
 
         # Work directory
-        workdir_flag = self._workdir.maybe("", lambda w: 
-            f'-w "{w}"' if self.container_type == "docker" else f'--pwd "{w}"')
+        workdir_flag = self._workdir.maybe("", lambda w:
+        f'-w "{w}"' if self.container_type == "docker" else f'--pwd "{w}"')
 
         # Image
         image = self._image.maybe("", lambda i: i)
 
         # Mounts
         mount_flags = []
+        mkdir_cmds = []  # for singularity pre-creation
         if self.container_type == "docker":
             for container_path, host_path in self._bind_mounts.items():
                 mount_flags.append(f'-v "{host_path}":"{container_path}"')
@@ -179,13 +188,15 @@ class ContainerCommandBuilder:
                 mount_flags.append(f'-v "{volume_name}":"{container_path}"')
         else:  # singularity
             for container_path, host_path in self._bind_mounts.items():
+                mkdir_cmds.append(f'mkdir -p "{host_path}"')
                 mount_flags.append(f'-B "{host_path}":"{container_path}"')
             for container_path, volume_name in self._volumes.items():
+                mkdir_cmds.append(f'mkdir -p "{volume_name}"')
                 mount_flags.append(f'-B "{volume_name}":"{container_path}"')
 
         # Command
-        command_str = self._command.maybe("", lambda cmd: 
-            " ".join(shlex.quote(arg) for arg in cmd) if isinstance(cmd, list) else cmd)
+        command_str = self._command.maybe("", lambda cmd:
+        " ".join(shlex.quote(arg) for arg in cmd) if isinstance(cmd, list) else cmd)
 
         # Build final command
         if self.container_type == "docker":
@@ -195,11 +206,14 @@ class ContainerCommandBuilder:
                 f"{image} {command_str}"
             ).strip()
         else:  # singularity
-            return (
+            mkdir_prefix = " && ".join(mkdir_cmds)
+            singularity_cmd = (
                 f"singularity exec {cpu_flag} {mem_flag} {workdir_flag} "
                 f"{' '.join(env_flags)} {' '.join(mount_flags)} "
                 f"{image} {command_str}"
             ).strip()
+            return f"{mkdir_prefix} && {singularity_cmd}" if mkdir_prefix else singularity_cmd
+
 
 # Unified command functions
 def stage_in_command(
