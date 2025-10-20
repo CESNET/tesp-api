@@ -36,6 +36,9 @@ jobs:
         run: |
           python tests/upload_server.py &
 
+      - name: Install dependencies
+        run: pip install .
+
       - name: instal pytest
         run: pip install pytest
 
