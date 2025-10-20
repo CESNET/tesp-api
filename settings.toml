@@ -1,6 +1,6 @@
 [default]
 db.mongodb_uri = "mongodb://localhost:27017"
-pulsar.url = "http://172.17.0.1:8913"
+pulsar.url = "http://localhost:8913"
 pulsar.status.poll_interval = 4
 pulsar.status.max_polls = 100
 
@@ -14,6 +14,5 @@ basic_auth.password = "password"
 
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
-pulsar.url = "http://172.17.0.1:8913"
+pulsar.url = "http://localhost:8913"
 logging.output_json = false
-# pulsar.amqp_url = "pyamqp://galaxy-qa1:4YN2UrHrASBBjwyj1hGEehQUNQJDBTse@galaxy-qa2.galaxy.cloud.e-infra.cz:5671/pulsar?ssl=1"
