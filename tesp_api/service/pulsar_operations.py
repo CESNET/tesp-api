@@ -67,7 +67,7 @@ class PulsarRestOperations(PulsarOperations):
                     case 'JSON': return await response.json(content_type='text/html')
                     case 'BYTES': return await response.read()
                     case _ as value: raise ValueError(f'Got unexpected value [{value}] for response_type parameter')
-        except ClientError as err:
+        except (ClientError, asyncio.TimeoutError) as err:
             raise PulsarLayerConnectionError(err)
 
     async def job_status_complete(self, job_id: str):

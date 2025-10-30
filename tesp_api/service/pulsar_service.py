@@ -14,7 +14,7 @@ async def on_request_start(session, context, params):
 class PulsarService:
 
     def __init__(self):
-        timeout = aiohttp.ClientTimeout(total=2)
+        timeout = aiohttp.ClientTimeout(total=properties.pulsar.client_timeout)
         connector = aiohttp.TCPConnector(family=AF_INET, limit_per_host=100)
         trace_config = aiohttp.TraceConfig()
         trace_config.on_request_start.append(on_request_start)

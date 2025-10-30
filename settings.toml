@@ -2,7 +2,8 @@
 db.mongodb_uri = "mongodb://localhost:27017"
 pulsar.url = "http://localhost:8913"
 pulsar.status.poll_interval = 4
-pulsar.status.max_polls = 100
+pulsar.status.max_polls = 400
+pulsar.client_timeout = 30
 
 logging.level = "DEBUG"
 logging.output_json = false
@@ -14,5 +15,5 @@ basic_auth.password = "password"
 
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
-pulsar.url = "http://pulsar_rest:8913"
+pulsar.url = "http://172.17.0.1:8913"
 logging.output_json = false
