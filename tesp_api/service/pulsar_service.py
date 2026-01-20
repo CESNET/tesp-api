@@ -25,7 +25,7 @@ class PulsarService:
             return PulsarAmqpOperations(
                 amqp_url=properties.pulsar.amqp_url,
                 pulsar_client=self.pulsar_client,
-                base_url=properties.pulsar.url
+                base_url=properties.pulsar.url,
                 status_poll_interval=properties.pulsar.status.poll_interval,
                 status_max_polls=properties.pulsar.status.max_polls
             )
