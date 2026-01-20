@@ -1,4 +1,5 @@
 import asyncio
+import json
 import aio_pika
 from enum import Enum
 from typing import Literal
@@ -39,9 +40,22 @@ class PulsarOperationsError(Exception):
 class PulsarOperations(ABC):
 
     @abstractmethod
-    def erase_job(self, task_id: ObjectId):
-        pass
+    def erase_job(self, task_id: ObjectId): pass
 
+    @abstractmethod
+    def setup_job(self, job_id: ObjectId): pass
+
+    @abstractmethod
+    def run_job(self, job_id: ObjectId, run_command: str): pass
+
+    @abstractmethod
+    def job_status_complete(self, job_id: str): pass
+
+    @abstractmethod
+    def upload(self, job_id: ObjectId, io_type: TesTaskIOType, file_path: str, file_content: Maybe[str]): pass
+
+    @abstractmethod
+    def download_output(self, job_id: ObjectId, file_name: str): pass
 
 class PulsarRestOperations(PulsarOperations):
 
@@ -120,10 +134,13 @@ class PulsarRestOperations(PulsarOperations):
 
 
 class PulsarAmqpOperations(PulsarOperations):
-    def __init__(self, amqp_url: str, pulsar_client: ClientSession, base_url: str):
+    def __init__(self, amqp_url: str, pulsar_client: ClientSession, base_url: str,
+                 status_poll_interval: int, status_max_polls: int):
         self.amqp_url = amqp_url
         self.pulsar_client = pulsar_client
         self.base_url = base_url
+        self.status_poll_interval = status_poll_interval
+        self.status_max_polls = status_max_polls
         self.connection: aio_pika.RobustConnection | None = None
         self.channel: aio_pika.Channel | None = None
 
@@ -157,11 +174,32 @@ class PulsarAmqpOperations(PulsarOperations):
         except ClientError as err:
             raise PulsarLayerConnectionError(err)
 
+    async def job_status_complete(self, job_id: str):
+        """
+        Submit via AMQP, but Poll via REST for completion.
+        """
+        for i in range(0, self.status_max_polls):
+            await asyncio.sleep(self.status_poll_interval)
+            # Reuse the REST endpoint to check status
+            json_response = await self._pulsar_request(
+                path=f'/jobs/{job_id}/status', method='GET', response_type='JSON')
+            if json_response['complete'] == 'true':
+                return json_response
+        raise LookupError()
+
     def setup_job(self, job_id: str):
         return Promise(lambda resolve, reject: resolve(None))\
             .then(lambda _: self._send_message({
                 "type": "job",
                 "job_id": str(job_id)
+            })).catch(lambda e: PulsarOperationsError(e))
+
+    def run_job(self, job_id: ObjectId, run_command: str):
+        return Promise(lambda resolve, reject: resolve(None))\
+            .then(lambda _: self._send_message({
+                "type": "submit",
+                "job_id": str(job_id),
+                "command_line": run_command
             })).catch(lambda e: PulsarOperationsError(e))
 
     def erase_job(self, task_id: ObjectId):
