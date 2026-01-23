@@ -175,12 +175,8 @@ class PulsarAmqpOperations(PulsarOperations):
             raise PulsarLayerConnectionError(err)
 
     async def job_status_complete(self, job_id: str):
-        """
-        Submit via AMQP, but Poll via REST for completion.
-        """
         for i in range(0, self.status_max_polls):
             await asyncio.sleep(self.status_poll_interval)
-            # Reuse the REST endpoint to check status
             json_response = await self._pulsar_request(
                 path=f'/jobs/{job_id}/status', method='GET', response_type='JSON')
             if json_response['complete'] == 'true':
