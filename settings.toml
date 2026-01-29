@@ -2,7 +2,8 @@
 db.mongodb_uri = "mongodb://localhost:27017"
 pulsar.url = "http://localhost:8913"
 pulsar.status.poll_interval = 4
-pulsar.status.max_polls = 100
+pulsar.status.max_polls = 400
+pulsar.client_timeout = 30
 
 logging.level = "DEBUG"
 logging.output_json = false

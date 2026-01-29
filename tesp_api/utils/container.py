@@ -22,6 +22,7 @@ class ContainerCommandBuilder:
         self._envs: Dict[str, str] = {}
         self._volumes: Dict[str, str] = {}
         self._bind_mounts: Dict[str, str] = {}
+        self._dirs_to_create: List[str] = []
         self._command: Maybe[str] = Nothing
         self._stdin: Maybe[str] = Nothing
         self._stdout: Maybe[str] = Nothing
@@ -46,9 +47,21 @@ class ContainerCommandBuilder:
         self._volumes[container_path] = volume_name
         return self
 
+    def with_directory(self, path: str):
+        self._dirs_to_create.append(path)
+        return self
+
     def with_image(self, image: str):
-        if self.container_type == "singularity" and not image.startswith("docker://"):
-            self._image = Just(f"docker://{image}")
+        if self.container_type == "singularity":
+            # If it's an absolute path, use as-is
+            if os.path.isabs(image):
+                self._image = Just(image)
+            # If it's already got a URI scheme, use as-is
+            elif image.startswith(("docker://", "library://", "shub://", "oras://")):
+                self._image = Just(image)
+            # Otherwise, assume Docker Hub reference
+            else:
+                self._image = Just(f"docker://{image}")
         else:
             self._image = Just(image)
         return self
@@ -141,6 +154,7 @@ class ContainerCommandBuilder:
         self._envs = {}
         self._volumes = {}
         self._bind_mounts = {}
+        self._dirs_to_create = []
         self._command = Nothing
         self._stdin = Nothing
         self._stdout = Nothing
@@ -149,11 +163,11 @@ class ContainerCommandBuilder:
 
     def get_run_command(self) -> str:
         # Common resource flags
-        cpu_flag = self._resource_cpu.maybe("", lambda cpu: 
-            f"--cpus={cpu}" if self.container_type == "docker" else f"--cpu={cpu}")
-        
-        mem_flag = self._resource_mem.maybe("", lambda mem: 
-            f"--memory={mem}g" if self.container_type == "docker" else f"--memory={mem}G")
+        cpu_flag = self._resource_cpu.maybe("", lambda cpu:
+        f"--cpus={cpu}" if self.container_type == "docker" else f"--cpu={cpu}")
+
+        mem_flag = self._resource_mem.maybe("", lambda mem:
+        f"--memory={mem}g" if self.container_type == "docker" else f"--memory={mem}G")
 
         # Environment variables
         env_flags = []
@@ -164,14 +178,22 @@ class ContainerCommandBuilder:
                 env_flags.append(f'--env {k}="{v}"')
 
         # Work directory
-        workdir_flag = self._workdir.maybe("", lambda w: 
-            f'-w "{w}"' if self.container_type == "docker" else f'--pwd "{w}"')
+        workdir_flag = self._workdir.maybe("", lambda w:
+        f'-w "{w}"' if self.container_type == "docker" else f'--pwd "{w}"')
 
         # Image
         image = self._image.maybe("", lambda i: i)
 
         # Mounts
         mount_flags = []
+        mkdir_cmds = []  # for singularity pre-creation
+
+        # Handle explicit directories (Singularity only)
+        if self.container_type == "singularity":
+            for path in self._dirs_to_create:
+                mkdir_cmds.append(f'mkdir -p "{path}"')
+
+        # Handle mounts
         if self.container_type == "docker":
             for container_path, host_path in self._bind_mounts.items():
                 mount_flags.append(f'-v "{host_path}":"{container_path}"')
@@ -181,11 +203,13 @@ class ContainerCommandBuilder:
             for container_path, host_path in self._bind_mounts.items():
                 mount_flags.append(f'-B "{host_path}":"{container_path}"')
             for container_path, volume_name in self._volumes.items():
+                # Volumes are always directories, so we can auto-create them
+                mkdir_cmds.append(f'mkdir -p "{volume_name}"')
                 mount_flags.append(f'-B "{volume_name}":"{container_path}"')
 
         # Command
-        command_str = self._command.maybe("", lambda cmd: 
-            " ".join(shlex.quote(arg) for arg in cmd) if isinstance(cmd, list) else cmd)
+        command_str = self._command.maybe("", lambda cmd:
+        " ".join(shlex.quote(arg) for arg in cmd) if isinstance(cmd, list) else cmd)
 
         # Build final command
         if self.container_type == "docker":
@@ -195,11 +219,14 @@ class ContainerCommandBuilder:
                 f"{image} {command_str}"
             ).strip()
         else:  # singularity
-            return (
+            mkdir_prefix = " && ".join(mkdir_cmds)
+            singularity_cmd = (
                 f"singularity exec {cpu_flag} {mem_flag} {workdir_flag} "
                 f"{' '.join(env_flags)} {' '.join(mount_flags)} "
                 f"{image} {command_str}"
             ).strip()
+            return f"{mkdir_prefix} && {singularity_cmd}" if mkdir_prefix else singularity_cmd
+
 
 # Unified command functions
 def stage_in_command(
@@ -212,7 +239,8 @@ def stage_in_command(
     builder = ContainerCommandBuilder(container_type) \
         .with_image(executor.image) \
         .with_workdir(executor.workdir) \
-        .with_resource(resource_conf)
+        .with_resource(resource_conf) \
+        .with_directory(bind_mount)
 
     commands = []
     for input_conf in input_confs:
@@ -227,12 +255,12 @@ def stage_in_command(
         if input_type == TesTaskIOType.DIRECTORY:
             # Recursive download
             commands.append(
-                f"wget --mirror --no-parent --no-host-directories "
+                f"wget -e robots=off --mirror --no-parent --no-host-directories "
                 f"--directory-prefix={shlex.quote(filename)} {shlex.quote(url)}"
             )
         else:
             # Single file download
-            commands.append(f"curl -o {shlex.quote(filename)} {shlex.quote(url)}")
+            commands.append(f"curl -f -o {shlex.quote(filename)} {shlex.quote(url)}")
     
     if commands:
         builder.with_command(["sh", "-c", " && ".join(commands)])
@@ -278,7 +306,13 @@ def run_command(
         builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
     
     for input_conf in input_confs:
+        if input_conf.get('type') == TesTaskIOType.DIRECTORY:
+            builder.with_directory(input_conf['pulsar_path'])
+
         builder.with_bind_mount(input_conf['container_path'], input_conf['pulsar_path'])
+
+    if not executor.workdir and container_type == "singularity":
+        builder.with_workdir("/")
 
     return builder.get_run_command()
 
@@ -306,11 +340,11 @@ def stage_out_command(
             # Recursive upload
             cmd = (
                 f"find {shlex.quote(path)} -type f -exec "
-                f"curl -X POST -F 'file=@{{}}' {shlex.quote(url)} \\;"
+                f"curl -f -X POST -F 'file=@{{}}' {shlex.quote(url)} \\;"
             )
         else:
             # Single file upload
-            cmd = f"curl -X POST -F 'file=@{shlex.quote(path)}' {shlex.quote(url)}"
+            cmd = f"curl -f -X POST -F 'file=@{shlex.quote(path)}' {shlex.quote(url)}"
         
         commands.append(cmd)
     
@@ -320,12 +354,10 @@ def stage_out_command(
     # Mount required directories
     if container_type == "singularity" and bind_mount:
         builder.with_bind_mount(executor.workdir, bind_mount)
+        builder.with_directory(bind_mount)
     
     for volume_conf in volume_confs:
-        if container_type == "docker":
-            builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
-        elif container_type == "singularity" and job_directory:
-            builder.with_bind_mount(volume_conf['container_path'], job_directory)
+        builder.with_volume(volume_conf['container_path'], volume_conf['volume_name'])
 
     if executor.env:
         for env_name, env_value in executor.env.items():
@@ -333,7 +365,6 @@ def stage_out_command(
 
     return builder.get_run_command()
 
-# Volume mapping function remains the same
 def map_volumes(job_id: str, volumes: List[str], outputs: List[TesTaskOutput]):
     output_confs: List[dict] = []
     volume_confs: List[dict] = []

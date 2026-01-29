@@ -97,17 +97,20 @@ class TaskRepository:
             p_author: Maybe[str],
             task_id: ObjectId
             ) -> Promise:
-        full_search_query = dict()
-        full_search_query.update({'_id': task_id})
-        full_search_query.update(p_author.maybe({}, lambda a: {'author': a}))
+        search_query = {
+            '_id': task_id,
+            'state': {'$in': [
+                TesTaskState.QUEUED,
+                TesTaskState.INITIALIZING,
+                TesTaskState.RUNNING
+            ]}
+        }
+        search_query.update(p_author.maybe({}, lambda a: {'author': a}))
+        update_query = {'$set': {'state': TesTaskState.CANCELED}}
 
-        return Promise(lambda resolve, reject: resolve(full_search_query)) \
-            .then(self._tasks.find_one) \
-            .then(lambda _task: self.update_task(
-                {'_id': task_id},
-                {'$set': {'state': TesTaskState.CANCELED}}
-            )).map(lambda updated_task: updated_task
-                   .map(lambda _updated_task: _updated_task.id))\
+        return self.update_task(search_query, update_query)\
+            .map(lambda updated_task: updated_task
+                 .map(lambda _updated_task: _updated_task.id))\
             .catch(handle_data_layer_error)
 
 

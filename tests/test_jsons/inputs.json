@@ -7,7 +7,7 @@
         },
         {
             "path": "/data/file_http",
-            "url": "http://172.17.0.1:5000/download/test.txt",
+            "url": "http://172.17.0.1:5000/test_data/test.txt",
             "type": "FILE"
         }
     ],

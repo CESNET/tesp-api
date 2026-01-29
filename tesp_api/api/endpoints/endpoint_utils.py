@@ -107,5 +107,14 @@ def resource_not_found_response(message: Maybe[str] = Nothing):
 
 
 def response_from_model(model: BaseModel, model_rules: dict = None) -> Response:
-    return Response(model.json(**(model_rules if model_rules else {}), by_alias=False),
-                    status_code=200, media_type='application/json')
+    response = Response(
+        model.json(**(model_rules if model_rules else {}), by_alias=False),
+        status_code=200, 
+        media_type='application/json'
+    )
+    # FORCE NO CACHING
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    return response

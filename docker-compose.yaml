@@ -6,7 +6,7 @@ services:
       target: development
     image: tesp-api
     environment:
-      - CONTAINER_TYPE=docker  # Set to "docker", "singularity", or "both"
+      - CONTAINER_TYPE=singularity  # Set to "docker", "singularity", or "both"
     container_name: tesp-api
     privileged: true
     ports:

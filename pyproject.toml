@@ -10,6 +10,7 @@ repository = "https://github.com/ndopj/tesp-api"
 
 [tool.poetry.dependencies]
 python = "^3.10.0"
+aio_pika = "^9.5.7"
 fastapi = "^0.75.1"
 orjson = "^3.6.8"
 gunicorn = "^20.1.0"
