@@ -15,5 +15,5 @@ basic_auth.password = "password"
 
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
-pulsar.url = "http://172.17.0.1:8913"
+pulsar.url = "http://pulsar_rest:8913"
 logging.output_json = false

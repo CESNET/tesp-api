@@ -96,7 +96,6 @@ async def handle_initializing_task(event: Event) -> None:
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    # Merged Logic: Using the feature-complete setup_data from the new version
     async def setup_data(job_id: ObjectId,
                          resources: TesTaskResources,
                          volumes: List[str],
@@ -239,7 +238,6 @@ async def handle_run_task(event: Event) -> None:
         non_empty_parts = [p.strip() for p in parts if p and p.strip()]
         run_command_str = " && ".join(non_empty_parts) if non_empty_parts else None
 
-        # Resume with the polished version's logic for execution and state management
         command_start_time = datetime.datetime.now(datetime.timezone.utc)
         command_status: dict
 
