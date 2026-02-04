@@ -4,6 +4,8 @@ from typing import List
 from pathlib import Path
 import asyncio
 
+from loguru import logger
+
 from pymonad.maybe import Just, Nothing
 from bson.objectid import ObjectId
 from pymonad.promise import Promise, _Promise
@@ -36,7 +38,7 @@ def handle_queued_task(event: Event) -> None:
     Dispatches the task to a REST or AMQP specific handler based on Pulsar operations type.
     """
     event_name, payload = event
-    print(f"Queued task: {payload.get('task_id')}")
+    logger.info(f"Queued task: {payload.get('task_id')}")
     match pulsar_service.get_operations():
         case PulsarRestOperations() as pulsar_rest_operations:
             dispatch_event('queued_task_rest', {**payload, 'pulsar_operations': pulsar_rest_operations})
@@ -53,7 +55,7 @@ async def handle_queued_task_rest(event: Event):
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarRestOperations = payload['pulsar_operations']
 
-    print(f"Queued task rest: {task_id}")
+    logger.debug(f"Queued task rest: {task_id}")
 
     await Promise(lambda resolve, reject: resolve(None)) \
         .then(lambda nothing: pulsar_operations.setup_job(task_id)) \
@@ -71,7 +73,7 @@ async def handle_queued_task_amqp(event: Event):
     task_id: ObjectId = payload['task_id']
     pulsar_operations: PulsarAmqpOperations = payload['pulsar_operations']
 
-    print(f"Queued task AMQP: {task_id}")
+    logger.debug(f"Queued task AMQP: {task_id}")
 
     try:
         # Setup job via AMQP
@@ -134,7 +136,8 @@ async def handle_initializing_task(event: Event) -> None:
 
         return resource_conf, volume_confs, input_confs, output_confs
 
-    print(f"Initializing task: {task_id}")
+    logger.info(f"Initializing task: {task_id}")
+
     await Promise(lambda resolve, reject: resolve(None)) \
         .then(lambda nothing: task_repository.update_task_state(
         task_id,
@@ -178,7 +181,7 @@ async def handle_run_task(event: Event) -> None:
     command_start_time = datetime.datetime.now(datetime.timezone.utc)
 
     try:
-        print(f"Running task: {task_id}")
+        logger.info(f"Running task: {task_id}")
         # Set task state to RUNNING
         task_monad_init = await task_repository.update_task_state(
             task_id,
@@ -191,7 +194,7 @@ async def handle_run_task(event: Event) -> None:
         current_task_after_init_monad = await task_repository.get_task(maybe_of(author), {'_id': task_id})
         current_task_after_init = get_else_throw(current_task_after_init_monad, TaskNotFoundError(task_id))
         if current_task_after_init.state == TesTaskState.CANCELED:
-            print(f"Task {task_id} found CANCELED shortly after RUNNING state update. Aborting handler.")
+            logger.warning(f"Task {task_id} found CANCELED shortly after RUNNING state update. Aborting handler.")
             return
 
         await update_last_task_log_time(
@@ -242,10 +245,10 @@ async def handle_run_task(event: Event) -> None:
         command_status: dict
 
         if run_command_str is None:
-            print(f"Task {task_id} has no commands to run. Treating as successful no-op.")
+            logger.warning(f"Task {task_id} has no commands to run. Treating as successful no-op.")
             command_status = {'stdout': '', 'stderr': 'No commands to run.', 'returncode': 0}
         else:
-            print(f"Submitting job to Pulsar for task {task_id}: {run_command_str}")
+            logger.debug(f"Submitting job to Pulsar for task {task_id}: {run_command_str}")
             await pulsar_operations.run_job(task_id, run_command_str)
             command_status = await pulsar_operations.job_status_complete(str(task_id))
 
@@ -261,17 +264,17 @@ async def handle_run_task(event: Event) -> None:
         current_task_obj = get_else_throw(current_task_monad, TaskNotFoundError(task_id))
 
         if current_task_obj.state == TesTaskState.CANCELED:
-            print(f"Task {task_id} found CANCELED after job completion polling. Aborting state changes.")
+            logger.warning(f"Task {task_id} found CANCELED after job completion polling. Aborting state changes.")
             return
 
         if command_status.get('returncode', -1) != 0:
-            print(
+            logger.error(
                 f"Task {task_id} executor error (return code: {command_status.get('returncode', -1)}). Setting state to EXECUTOR_ERROR.")
             await task_repository.update_task_state(task_id, TesTaskState.RUNNING, TesTaskState.EXECUTOR_ERROR)
             await pulsar_operations.erase_job(task_id)
             return
 
-        print(f"Task {task_id} completed successfully. Setting state to COMPLETE.")
+        logger.info(f"Task {task_id} completed successfully. Setting state to COMPLETE.")
         await Promise(lambda resolve, reject: resolve(None)) \
             .then(lambda ignored: task_repository.update_task_state(
             task_id, TesTaskState.RUNNING, TesTaskState.COMPLETE
@@ -284,22 +287,22 @@ async def handle_run_task(event: Event) -> None:
             .then(lambda x: x)
 
     except asyncio.CancelledError:
-        print(f"handle_run_task for task {task_id} was explicitly cancelled (asyncio.CancelledError).")
+        logger.warning(f"handle_run_task for task {task_id} was explicitly cancelled (asyncio.CancelledError).")
         await task_repository.update_task_state(task_id, None, TesTaskState.CANCELED)
         await pulsar_operations.kill_job(task_id)
         await pulsar_operations.erase_job(task_id)
-        print(f"Task {task_id} Pulsar job cleanup attempted after asyncio cancellation.")
+        logger.info(f"Task {task_id} Pulsar job cleanup attempted after asyncio cancellation.")
 
     except Exception as error:
-        print(f"Exception in handle_run_task for task {task_id}: {type(error).__name__} - {error}")
+        logger.error(f"Exception in handle_run_task for task {task_id}: {type(error).__name__} - {error}")
 
         task_state_after_error_monad = await task_repository.get_task(maybe_of(author), {'_id': task_id})
         if task_state_after_error_monad.is_just() and task_state_after_error_monad.value.state == TesTaskState.CANCELED:
-            print(
+            logger.info(
                 f"Task {task_id} is already CANCELED. Exception '{type(error).__name__}' likely due to this. No further error processing by handler.")
             return
 
-        print(f"Task {task_id} not CANCELED; proceeding with pulsar_event_handle_error for '{type(error).__name__}'.")
+        logger.debug(f"Task {task_id} not CANCELED; proceeding with pulsar_event_handle_error for '{type(error).__name__}'.")
         error_handler_result = pulsar_event_handle_error(error, task_id, event_name, pulsar_operations)
         if asyncio.iscoroutine(error_handler_result) or isinstance(error_handler_result, _Promise):
             await error_handler_result

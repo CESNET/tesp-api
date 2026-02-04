@@ -3,6 +3,7 @@
 import json
 import multiprocessing
 import os
+import logging
 
 from tesp_api.config import gunicorn_logger
 
@@ -42,4 +43,5 @@ log_data = {
     "host": host,
     "port": port,
 }
-print(json.dumps(log_data))
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("gunicorn.config").info(json.dumps(log_data))
