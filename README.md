@@ -279,37 +279,3 @@ longer configured to redirect stdout into the file.
 | _TES_    | tasks `executors.workdir` and `executors.env` functionality is not yet implemented. You can use them but they will have no effect                                                  |
 | _TES_    | tasks `volumes` and `tags` functionality is not yet implemented. You use them but they will have no effect                                                                         |
 | _TES_    | tasks `logs.outputs` functionality is not yet implemented. However this limitation can be bypassed with tasks `outputs`                                                            |
-
-&nbsp;
-## GIT
-Current main branch is `origin/main`. This happens to be also a release branch for now. Developers should typically derive their
-own feature branches such as e.g. `feature/TESP-111-task-monitoring`. This project has not yet configured any CI/CD. Releases are
-done manually by creating a tag in the current release branch. There is not yet configured any issue tracking software but for
-any possible future integration this project should reference commits, branches PR's etc ... with prefix `TESP-0` as a reference
-to a work that has been done before such integration. Pull request should be merged using `Squash and merge` option with message format `Merge pull request #<PRnum> from <branch-name>`.
-Since there is no CI/CD setup this is only opinionated view on how branching policies should work and for now everything is possible. 
-
-## License
-
-[![license](https://img.shields.io/github/license/CESNET/tesp-api)](https://github.com/CESNET/tesp-api/blob/main/LICENSE.md)
-```
-Copyright (c) 2022 Norbert Dopjera
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
