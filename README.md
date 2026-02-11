@@ -9,6 +9,7 @@ This is a task execution microservice based on the [TES standard](https://github
 
 Read about our project on the [Galaxy Hub](https://galaxyproject.org/news/2025-10-06-tesp-api/) and [e-INFRA CZ Blog](https://blog.e-infra.cz/blog/tesp-api/).
 
+This effort is part of the [EuroScienceGateway](https://galaxyproject.org/projects/esg/) project.
 For more details on TES, see the [Task Execution Schemas documentation](https://ga4gh.github.io/task-execution-schemas/docs/). 
 Pulsar is a Python server application that allows a [Galaxy](https://github.com/galaxyproject/galaxy) server to run jobs on remote systems. 
 
