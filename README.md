@@ -5,13 +5,12 @@
 [![python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/download)
 [![last-commit](https://img.shields.io/github/last-commit/CESNET/tesp-api)]()
 
-This project is an effort to create Open-source implementation of a task execution engine based on the [TES standard](https://github.com/ga4gh/task-execution-schemas)
-distributing executions to services exposing [Pulsar](https://github.com/galaxyproject/pulsar) application. For more details
-on `TES`, see the Task Execution Schemas [documentation](https://ga4gh.github.io/task-execution-schemas/docs/). `Pulsar`
-is a Python server application that allows a [Galaxy](https://github.com/galaxyproject/galaxy) server to run jobs on remote systems. The original intention of this
-project was to modify the `Pulsar` project (e.g. via forking) so its Rest API would be compatible with the `TES` standard.
-Later a decision was made that rather a separate microservice will be created, decoupled from the `Pulsar`, implementing the `TES`
-standard and distributing `TES` tasks execution to `Pulsar` applications.
+This is a task execution microservice based on the [TES standard](https://github.com/ga4gh/task-execution-schemas) that sends job executions to [Pulsar](https://github.com/galaxyproject/pulsar) application. 
+
+Read about our project on the [Galaxy Hub](https://galaxyproject.org/news/2025-10-06-tesp-api/) and [e-INFRA CZ Blog](https://blog.e-infra.cz/blog/tesp-api/).
+
+For more details on TES, see the [Task Execution Schemas documentation](https://ga4gh.github.io/task-execution-schemas/docs/). 
+Pulsar is a Python server application that allows a [Galaxy](https://github.com/galaxyproject/galaxy) server to run jobs on remote systems. 
 
 ## Quick start
 
@@ -279,3 +278,8 @@ longer configured to redirect stdout into the file.
 | _TES_    | tasks `executors.workdir` and `executors.env` functionality is not yet implemented. You can use them but they will have no effect                                                  |
 | _TES_    | tasks `volumes` and `tags` functionality is not yet implemented. You use them but they will have no effect                                                                         |
 | _TES_    | tasks `logs.outputs` functionality is not yet implemented. However this limitation can be bypassed with tasks `outputs`                                                            |
+
+
+History note: _The original intention of this project was to modify the `Pulsar` project so its Rest API would be compatible with the `TES` standard.
+Later a decision was made that rather a separate microservice will be created, decoupled from the `Pulsar`, implementing the `TES`
+standard and distributing `TES` tasks execution to `Pulsar` applications._
