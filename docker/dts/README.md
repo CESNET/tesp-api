@@ -1,20 +1,26 @@
-The `docker-compose.yaml` file in this directory is primarily intended for testing the DTS services of the TESP API. Currently, **only HTTP service is compatible** with the smoke tests.
+The `docker-compose.yaml` file in this directory is primarily intended for testing the DTS services of the TESP API. Smoke tests exercise **only the HTTP service**.
 To ensure proper execution of the tests, run `docker-compose.yaml` both in this directory and in the `/tesp-api` directory with:
 ```
 docker compose up -d --build
 ```
-
 # DTS
 
 Example of data transfer server using HTTP, S3 and FTP.
 
-Project uses Docker and deploy 4 containers:  
+### Current status
+
+- HTTP is the only DTS service implemented in this repository and used by smoke tests.
+- S3 runs MinIO as an external service for manual testing.
+- FTP runs the upstream `ftpserver` container and uses S3 (MinIO) as its storage backend.
+
+`docker-compose.yaml` deploys 4 containers:  
 - s3
 - ftp
 - http
 - clients
 
-The `clients` container contains clients for the used protocols. So you doesn't need to install the clients on you local computer to test it.
+The `clients` container contains clients for the used protocols, so you do not need to install the clients on your local computer to test it.
+
 
 ## Deploy
 
