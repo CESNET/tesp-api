@@ -133,11 +133,15 @@ instead of starting the project locally without `docker`. In that case only thos
 | ftp server     |    -     | _no real recommendation here. docker-compose uses [ftpserver](https://github.com/fclairamb/ftpserver) so local alternative should support same fpt commands_. |  
 
 ### Configuring TESP API
-`TESP API` uses [dynaconf](https://www.dynaconf.com/) for its configuration. Configuration is currently set up by using
-[./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml) file. This file declares sections which represent different environments for `TESP API`. Default section
-is currently used for local development without `docker`. Also, all the properties from default section are propagated
-to other sections as well unless they are overridden in the specific section itself. So for example if following `settings.toml`
-file is used
+`TESP API` uses [dynaconf](https://www.dynaconf.com/) for its configuration. Configuration is primarily set up by using
+[./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml) file for non-secret values, and
+[./.secrets.toml](https://github.com/CESNET/tesp-api/blob/main/.secrets.toml.example) (local, not tracked) for sensitive
+credentials.
+
+Configuration sections represent different environments for `TESP API`. The `default` section is used as base configuration
+that propagates to all other sections unless overridden.
+
+Example configuration:
 ```
 [default]
 db.mongodb_uri = "mongodb://localhost:27017"
@@ -146,12 +150,49 @@ logging.level = "DEBUG"
 [dev-docker]
 db.mongodb_uri = "mongodb://tesp-db:27017"
 ```
-then dev-docker environment will use property `logging.level = DEBUG` as well, while property `db.mongodb_uri`
-gets overridden to url of mongodb in the docker environment. `dev-docker` section in current [./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml)
-file is set up to support [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) for development infrastructure.  
-To apply different environment (i.e. to switch which section will be picked by `TESP API`) environment variable
-`FASTAPI_PROFILE` must be set to the concrete name of such section (e.g. `FASTAPI_PROFILE=dev-docker` which can be seen
-in the [./docker/tesp_api/Dockerfile](https://github.com/CESNET/tesp-api/blob/main/docker/tesp_api/Dockerfile))  
+
+To apply a different environment (switch which section will be used by `TESP API`), set the environment variable
+`FASTAPI_PROFILE` to the section name (e.g., `FASTAPI_PROFILE=dev-docker`).
+
+#### Authentication Configuration
+
+TESP API supports OAuth2 (recommended) and Basic Authentication. By default, authentication is disabled.
+
+**OAuth2 Configuration (Recommended for Production):**
+
+Create or update `.secrets.toml` with your OAuth2 settings:
+
+```toml
+[default]
+oauth.enable = true
+
+# List of trusted identity providers (REQUIRED for security)
+oauth.allowed_issuers = [
+  "https://auth.yourdomain.com/realms/your-realm"
+]
+
+# Required audience (should match your OAuth2 client_id)
+oauth.required_audience = "tesp-api-client"
+
+# Cache JWKS for this many seconds (reduces HTTP requests)
+oauth.cache_jwks_ttl = 300
+```
+
+**Important Security Notes:**
+- You must configure `oauth.allowed_issuers` when enabling OAuth2. Tokens from unauthorized issuers will be rejected.
+- The audience verification should be enabled and match your OAuth2 client configuration.
+- See [`.secrets.toml.example`](https://github.com/CESNET/tesp-api/blob/main/.secrets.toml.example) for a complete template.
+
+**Basic Authentication (For Development Only):**
+
+```toml
+[default]
+basic_auth.enable = true
+basic_auth.username = "your-username"
+basic_auth.password = "your-strong-password"
+```
+
+**Warning:** Basic authentication credentials should never be committed to version control. Always use `.secrets.toml` for secrets.  
 
 ### Configuring required services
 You can have a look at [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) to see how
