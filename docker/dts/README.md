@@ -1,20 +1,26 @@
-The `docker-compose.yaml` file in this directory is primarily intended for testing the DTS services of the TESP API.
+The `docker-compose.yaml` file in this directory is primarily intended for testing the DTS services of the TESP API. Smoke tests exercise **only the HTTP service**.
 To ensure proper execution of the tests, run `docker-compose.yaml` both in this directory and in the `/tesp-api` directory with:
 ```
 docker compose up -d --build
 ```
-
 # DTS
 
 Example of data transfer server using HTTP, S3 and FTP.
 
-Project uses Docker and deploy 4 containers:  
+### Current status
+
+- HTTP is the only DTS service implemented in this repository and used by smoke tests.
+- S3 runs MinIO as an external service for manual testing.
+- FTP runs the upstream `ftpserver` container and uses S3 (MinIO) as its storage backend.
+
+`docker-compose.yaml` deploys 4 containers:  
 - s3
 - ftp
 - http
 - clients
 
-The `clients` container contains clients for the used protocols. So you doesn't need to install the clients on you local computer to test it.
+The `clients` container contains clients for the used protocols, so you do not need to install the clients on your local computer to test it.
+
 
 ## Deploy
 
@@ -24,11 +30,20 @@ The `clients` container contains clients for the used protocols. So you doesn't 
 
 ### HTTP
 
-Upload  
-`curl -i -X POST -F "file=@up-file.txt;filename=file.txt" service-http:5000/upload`
+The HTTP service provides multiple routes:
 
-Download  
-`curl -X GET -o down-file.txt service-http:5000/download/file.txt`
+**Upload** (saves to `/data/uploaded_data/`)  
+`curl -i -X POST -F "file=@up-file.txt" localhost:5000/upload`
+
+**Download (legacy route)**  
+`curl -X GET -o down-file.txt localhost:5000/download/file.txt`
+
+**Browse test_data (smoke test compatible)**  
+`curl localhost:5000/test_data/test.txt`  
+`curl localhost:5000/test_data/input_dir/`
+
+**List all files**  
+`curl localhost:5000/list`
 
 ### S3
 Create bucket  
@@ -89,19 +104,30 @@ lftp -p 2121 -e "put /tmp/sample.jpg; get $(basename $SAMPLE_DATE) -o /tmp/sampl
 
 ##### Upload
 
-POST + `http://localhost:5000/upload` while payload is sent as 'file' HTTP body parameter.
+POST to `http://localhost:5000/upload` with file as multipart form data:
+```bash
+curl -F "file=@/tmp/qwerty" http://localhost:5000/upload
 ```
+
+With subdirectory:
+```bash
 curl -F "file=@/tmp/qwerty" http://localhost:5000/upload/foo/bar
 ```
 
-
 ##### Download
-GET  + `http://localhost:5000/download` while payload is sent as 'file' HTTP body parameter.
-```
-wget  http://localhost:5000/download/foo/bar/qwerty
+
+Legacy route:
+```bash
+wget http://localhost:5000/download/foo/bar/qwerty
 ```
 
-
+Smoke test compatible route (serves from mounted test_data):
+```bash
+curl http://localhost:5000/test_data/test.txt
+```
 
 ##### List of all data
-GET  + `http://localhost:5000/list` 
+
+```bash
+curl http://localhost:5000/list
+```

@@ -31,6 +31,7 @@ services:
       - "5000:5000"
     volumes:
       - ../../tests/test_data:/data
+      - ../../tests/uploaded_data:/data/uploaded_data
 
   tests-clients:
     build:
