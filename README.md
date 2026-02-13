@@ -22,19 +22,19 @@ The most straightforward way to deploy the TESP is to use Docker Compose.
 ```
 docker compose up -d
 ```
-Expecting exetrnal Pulsar configured in `settings.toml` before the compose is run.
-So far only REST Pulsar communication is supported.
+Starts the API and MongoDB containers. Configure an external Pulsar in `settings.toml`
+(default points to `http://localhost:8913`). REST is the default; AMQP is used only
+if `pulsar.amqp_url` is set.
 
 #### With pulsar_rest service:
 ```
 docker compose --profile pulsar up -d
 ```
+Starts a local Pulsar REST container in the same compose network.
 
 <br />
-<br />
-<br />
 
-Depending on you Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
+Depending on your Docker and Docker Compose installation, you may need to use `docker-compose` (with hyphen) instead.
 
 You might encounter a timeout error in container runtime which can be solved by correct `mtu` configuration either in the `docker-compose.yaml`:
 ```
@@ -47,17 +47,19 @@ networks:
  or directly in your `/etc/docker/daemon.json`:
 ```
 {
-	"mtu": 1442
+  "mtu": 1442
 }
 ```
 
-The `docker-compose.yaml` spins also collection of [Data Transfer Services](docker/dts/README.md) which can be used for testing. 
+The Data Transfer Services (HTTP/S3/FTP) are defined in [docker/dts](docker/dts/README.md)
+and run via a separate compose file.
 
+&nbsp;
 ### Usage
 If the TESP is running, you can try to submit a task. One way is to use cURL. Although the project is still in development, the TESP should be compatible with TES so you can try TES clients such as Snakemake or Nextflow. The example below shows how to submit task using cURL.
 
 #### 1. Create JSON file
-The first step you need to take is to prepare JSON file with the task. For inspiration you can use [tests](https://github.com/CESNET/tesp-api/tree/dev/tests/test_jsons) located in this repository, or [TES documentation](https://ga4gh.github.io/task-execution-schemas/docs/).  
+The first step you need to take is to prepare JSON file with the task. For inspiration you can use [tests/test_jsons](tests/test_jsons) located in this repository, or [TES documentation](https://ga4gh.github.io/task-execution-schemas/docs/).  
 
 Example JSON file:
 ```
@@ -89,10 +91,10 @@ Please check the URL of the running TES and the file with the task you just crea
 curl http://localhost:8080/v1/tasks -X POST -H "Content-Type: application/json" -d $(sed -e "s/ //g" example.json | tr -d '\n')
 ```
 (The only reason for the subshell is to remove whitespaces and newlines.)  
-After the task is submitted, the endpoint returns the task ID. This is usefull to check the task status.
+After the task is submitted, the endpoint returns the task ID. This is useful to check the task status.
 
 #### 3. Check the task status
-There are more usefull endpoints to check the task status.  
+There are more useful endpoints to check the task status.  
 
 List all tasks:
 ```
@@ -130,8 +132,9 @@ instead of starting the project locally without `docker`. In that case only thos
 | poetry         | 1.1.13+  | _pip install poetry_                                                                                                                                          |
 | mongodb        |   4.4+   | _docker-compose uses latest_                                                                                                                                  |
 | pulsar         | 0.14.13  | _actively trying to support latest. Must have access to docker with the same host as pulsar application itself_                                               |
-| ftp server     |    -     | _no real recommendation here. docker-compose uses [ftpserver](https://github.com/fclairamb/ftpserver) so local alternative should support same fpt commands_. |  
+| ftp server     |    -     | _optional for I/O testing. The [docker/dts](docker/dts/README.md) stack provides FTP/S3/HTTP services_. |  
 
+&nbsp;
 ### Configuring TESP API
 `TESP API` uses [dynaconf](https://www.dynaconf.com/) for its configuration. Configuration is currently set up by using
 [./settings.toml](https://github.com/CESNET/tesp-api/blob/main/settings.toml) file. This file declares sections which represent different environments for `TESP API`. Default section
@@ -153,13 +156,25 @@ To apply different environment (i.e. to switch which section will be picked by `
 `FASTAPI_PROFILE` must be set to the concrete name of such section (e.g. `FASTAPI_PROFILE=dev-docker` which can be seen
 in the [./docker/tesp_api/Dockerfile](https://github.com/CESNET/tesp-api/blob/main/docker/tesp_api/Dockerfile))  
 
+&nbsp;
+### Authentication
+`TESP API` can run without authentication (default). To enable Basic Auth, set `basic_auth.enable = true`
+and configure `basic_auth.username` and `basic_auth.password` in `settings.toml`. To enable OAuth2,
+set `oauth.enable = true` and pass a Bearer token; the token is validated via the issuer in its `iss`
+claim using OIDC discovery.
+
+Container execution runtime is controlled by the `CONTAINER_TYPE` environment variable (`docker` or
+`singularity`). The default is `docker`.
+
+&nbsp;
 ### Configuring required services
 You can have a look at [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml) to see how
 the infrastructure for development should look like. Of course, you can configure those services in your preferred way if you are
 going to start the project without `docker` or if you are trying to create other than `development` environment but some things
-must remain as they are. For example, `TESP API` currently supports communication with `Pulsar` only through its Rest API and
-therefore `Pulsar` must be configured in such a way.
+must remain as they are. For example, `TESP API` currently communicates with `Pulsar` via REST by default; configure Pulsar for
+REST unless you set `pulsar.amqp_url` to enable AMQP.
 
+&nbsp;
 ### Current Docker services
 All the current `Docker` services which will be used when the project is started with `docker-compose` have common directory
 [./docker](https://github.com/CESNET/tesp-api/tree/main/docker) for configurations, data, logs and Dockerfiles if required.
@@ -169,15 +184,12 @@ example trying to create data folder for given service. Such issues should be re
 which ports to be used etc. Following services are currently defined by [./docker-compose.yaml](https://github.com/CESNET/tesp-api/blob/main/docker-compose.yaml)
 - **tesp-api** - This project itself. Depends on mongodb
 - **tesp-db**  - [MongoDB](https://www.mongodb.com/) instance for persistence layer
-- **pulsar_rest** - `Pulsar` configured to use Rest API with access to a docker instance thanks to [DIND](https://hub.docker.com/_/docker).
-- **pulsar_amqp** - currently disabled, will be used in the future development
-- **ftpserver** - online storage for `TES` tasks input/output content
-- **minio** - currently acting only as a storage backend for the `ftpserver` with simple web interface to access data.  
+- **pulsar_rest** - `Pulsar` configured to use REST API with access to a docker instance thanks to [DIND](https://hub.docker.com/_/docker) (enabled with `--profile pulsar`).
 
-**Folder [./docker/minio/initial_data](https://github.com/CESNET/tesp-api/tree/main/docker/minio/initial_data) contains startup
-folders for `minio` service which must be copied to the `./docker/minio/data` folder before starting up the infrastructure. Those data
-configure `minio` to start with already created bucket and user which will be used by `ftpserver` for access.**  
+If you want HTTP/FTP/S3 data transfer services for testing, use the separate
+[docker/dts](docker/dts/README.md) compose stack.
 
+&nbsp;
 ### Run the project
 This project uses [Poetry](https://python-poetry.org/) for `dependency management` and `packaging`. `Poetry` makes it easy
 to install libraries required by `TESP API`. It uses [./pyproject.toml](https://github.com/CESNET/tesp-api/blob/feature/TESP-0-github-proper-readme/pyproject.toml)
@@ -210,26 +222,29 @@ initialized properly or whether any errors occurred.
 - **http://localhost:8080/** - will redirect to Swagger documentation of `TESP API`. This endpoint also currently acts as a frontend.
 You can use it to execute REST based calls expected by the `TESP API`. Swagger is automatically generated from the sources,
 and therefore it corresponds to the very current state of the `TESP API` interface.
-- **http://localhost:40949/** - `minio` web interface. Use `admin` and `!Password123` credentials to login. Make sure
-that bucket `tesp-ftp` is already present, otherwise see [Current Docker services](#current-docker-services) section of this readme to properly
-prepare infrastructure before the startup.
+- If you run the DTS stack from [docker/dts](docker/dts/README.md), MinIO console is available at
+  **http://localhost:9001/** with `root` / `123456789` credentials.
 
 ### Executing simple TES task
 This section will demonstrate execution of simple `TES` task which will calculate _[md5sum](https://en.wikipedia.org/wiki/Md5sum)_
 hash of given input. There are more approaches of how I/O can be handled by `TES` but main goal here is to demonstrate `ftp server` as well.  
 
-1. Head over to **http://localhost:40949/buckets/tesp-ftp/browse** and upload a new file with your preferred name and content (e.g. name
-`holy_file` and content `Hello World!`). This file will now be accessible trough `ftpserver` service and will be used as
-an input file for this demonstration.
+If you want to use the bundled HTTP/FTP/S3 services, start the DTS stack in [docker/dts](docker/dts/README.md)
+and adapt hostnames/ports to match your network setup.
+
+1. Upload a new file with your preferred name and content (e.g. name `holy_file` and content `Hello World!`) to your
+FTP-backed storage. If you run the DTS stack, use the MinIO console at **http://localhost:9001/** to create a bucket
+and upload the file. This file will be accessible through your FTP service and will be used as an input file for this
+demonstration.
 2. Go to **http://localhost:8080/** and use `POST /v1/tasks` request to create following `TES` task (task is sent in the request body).
-In the `"inputs.url"` replace `<file_uploaded_to_minio>` with the file name you chose in the previous step. If http status of
+In the `"inputs.url"` replace `<file_uploaded_to_storage>` with the file name you chose in the previous step. If http status of
 returned response is 200, the response will contain `id` of created task in the response body which will be used to
 reference this task later on.
 ```json
 {
   "inputs": [
     {
-      "url": "ftp://ftpserver:2121/<file_uploaded_to_minio>",
+      "url": "ftp://<ftp_host>:2121/<file_uploaded_to_storage>",
       "path": "/data/file1",
       "type": "FILE"
     }
@@ -237,7 +252,7 @@ reference this task later on.
   "outputs": [
     {
       "path": "/data/outfile",
-      "url": "ftp://ftpserver:2121/outfile-1",
+      "url": "ftp://<ftp_host>:2121/outfile-1",
       "type": "FILE"
     }
   ],
@@ -259,27 +274,26 @@ previous step. This request also supports `view` query parameter which can be us
 set to the state `COMPLETE` or one of the error states. In case of an error state, depending on its type, the error will be part
 of the task logs in the response (use `FULL` view), or you can inspect the logs of `TESP API` service, where error should be logged with respective
 message.
-4. Once the task completes you can head over back to **http://localhost:40949/buckets/tesp-ftp/browse** where you should find
-uploaded `outfile-1` with output content of executed _[md5sum](https://en.wikipedia.org/wiki/Md5sum)_. You can play around
+4. Once the task completes you can check your FTP-backed storage (for the DTS stack, use the MinIO console at
+**http://localhost:9001/**) where you should find uploaded `outfile-1` with output content of executed
+_[md5sum](https://en.wikipedia.org/wiki/Md5sum)_. You can play around
 by creating different tasks, just be sure to only use functionality which is currently supported - see [Known limitations](#known-limitations).
 For example, you can omit `inputs.url` and instead use `inputs.content` which allows you to create input in place, or you can also
 omit `outputs` and `executors.stdout` in which case the output will be present in the `logs.logs.stdout` as executor is no
 longer configured to redirect stdout into the file.  
 
+&nbsp;
 ### Known limitations of TESP API
 | Domain   | Limitation                                                                                                                                                                         |
 |----------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| _Pulsar_ | `TESP API` communicates with `Pulsar` only through its REST API, missing functionality for message queues                                                                          |
 | _Pulsar_ | `TESP API` should be able to dispatch executions to multiple `Pulsar` services via different types of `Pulsar` interfaces. Currently, only one `Pulsar` service is supported       |
 | _Pulsar_ | `Pulsar` must be "polled" for job state. Preferably `Pulsar` should notify `TESP API` about state change. This is already default behavior when using `Pulsar` with message queues |
-| _TES_    | Canceling `TES` task does not immediately stop the task. Task even cannot be canceled while it is running.                                                                         |
-| _TES_    | `TES` does not state specific urls to be supported for file transfer (e.g. tasks `inputs.url`). Only FTP is supported for now                                                      |
-| _TES_    | tasks `inputs.type` and `outputs.type` can be either DIRECTORY or FILE. Only FILE is supported, DIRECTORY will lead to undefined behavior for now                                  |
-| _TES_    | tasks `resources` currently do not change execution behavior in any way. This configuration will take effect once `Pulsar` limitations are resolved                                |
-| _TES_    | tasks `executors.workdir` and `executors.env` functionality is not yet implemented. You can use them but they will have no effect                                                  |
-| _TES_    | tasks `volumes` and `tags` functionality is not yet implemented. You use them but they will have no effect                                                                         |
-| _TES_    | tasks `logs.outputs` functionality is not yet implemented. However this limitation can be bypassed with tasks `outputs`                                                            |
+| _TES_    | Canceling a `TES` task calls Pulsar's cancel endpoint but container termination depends on Pulsar/runtime behavior. In-flight tasks may still complete.                             |
+| _TES_    | Only `cpu_cores` and `ram_gb` are mapped to container runtime flags. Other resource fields (disk, preemptible, zones) are stored but not enforced.                                  |
+| _TES_    | Task `tags` are accepted and stored but not used by the scheduler or runtime.                                                                                                      |
+| _TES_    | Task `logs.outputs` is not populated. Use `outputs` to persist result files.                                                                                                       |
 
+&nbsp;
 
 History note: _The original intention of this project was to modify the `Pulsar` project so its Rest API would be compatible with the `TES` standard.
 Later a decision was made that rather a separate microservice will be created, decoupled from the `Pulsar`, implementing the `TES`
