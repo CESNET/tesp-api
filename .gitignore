@@ -1,6 +1,12 @@
 # IDE's
 .idea
 
+# Security - Secrets and credentials
+.secrets.toml
+.env
+*.key
+*.pem
+
 # Custom ignored files
 *.uuid
 
